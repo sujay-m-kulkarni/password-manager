@@ -52,7 +52,11 @@ export function SetupScreen() {
           <View style={{ gap: 10 }}>
             <Field label="Master password" value={pw} onChangeText={setPw} {...secretInputProps} autoFocus />
             {pw.length > 0 && <StrengthBar score={strength.score} label={strength.label} />}
-            <Text style={s.hint}>At least 12 characters, or 4+ words like “purple mango river forty”.</Text>
+            <Text style={s.hint}>
+              {pw.length > 0 && strength.hint
+                ? strength.hint
+                : 'At least 12 characters, or 4+ words like “purple mango river forty”.'}
+            </Text>
           </View>
 
           <Field label="Confirm password" value={confirm} onChangeText={setConfirm} {...secretInputProps} />

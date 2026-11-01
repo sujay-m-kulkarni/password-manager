@@ -13,6 +13,6 @@ the release APK has no network permission, and the build pipeline refuses to pub
 | 2. Encrypted database and key hierarchy | Done |
 | 3. Setup, unlock, auto-lock, lockout | Done |
 | 4. Vault: list, search, folders, add/edit/delete, copy with auto-clear | Done |
-| 5. Password generator and strength meter | Next |
-| 6. Encrypted export/import, backup reminders | Planned |
+| 5. Password generator and strength meter | In review |
+| 6. Encrypted export/import, backup reminders | Next |
 | 7. Biometrics, recovery key, master password change | Planned |
