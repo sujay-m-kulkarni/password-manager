@@ -1,0 +1,36 @@
+# UI decisions
+
+**Chosen direction: Option D — "Full set, colourful"** (chosen 1 Nov 2026 from options A–D).
+
+The mockups live on the design canvas "Password Manager UI Options" in Claude; Option D's six screens are clickable there.
+
+## Visual style
+
+| Token | Value |
+|---|---|
+| Font | Plus Jakarta Sans (400, 600, 700, 800), bundled in `app/android/app/src/main/assets/fonts` |
+| Primary | `#5B3DF5` violet |
+| Background | `#F7F5FF` |
+| Ink | `#1B1530` |
+| Folder colours | Banking blue `#2563EB` · Work orange `#C2410C` · Email pink `#DB2777` · Social green `#15803D` |
+
+Each folder keeps its colour everywhere: chips, list icons, favourite tiles and the entry header.
+All colours live in `app/src/theme.ts`.
+
+## Screens
+
+1. **Setup** — master password, strength meter, rule: 12+ characters or 4+ words.
+2. **Unlock** — violet hero, master password, lockout message. (Fingerprint button arrives with build step 7.)
+3. **Vault** — search, folder chips, favourite tiles, list with Copy, clipboard countdown toast, + button.
+4. **Entry detail** — header in the folder colour, show/hide/copy, strength bar, website, notes, edit, favourite, delete.
+5. **Add/Edit** — form with a Generate button that opens the generator as a bottom sheet.
+6. **Generator tab** — same generator, with Copy.
+7. **Settings tab** — auto-lock timeout, clipboard timer, lock now. (Backup, recovery key and password change arrive with steps 6–7.)
+
+Bottom tabs: Vault · Generator · Settings.
+
+## Deliberate differences from the mockups
+
+- Icons are text glyphs for now; no icon or SVG package, to keep dependencies running next to the vault to a minimum.
+- The generator sheet is an in-screen overlay rather than an Android dialog, because a dialog window doesn't inherit
+  the screenshot block (`FLAG_SECURE`).

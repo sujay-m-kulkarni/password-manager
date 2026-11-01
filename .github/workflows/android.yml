@@ -1,0 +1,195 @@
+# Builds and tests the app on every pull request and on main.
+# A signed APK is published as a GitHub Release on every merge to main, when a tag such as
+# v0.2.0 is pushed, or when "Run workflow" is pressed with "release" ticked.
+# See docs/guides/build-pipeline.md.
+name: Android build
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      release:
+        description: Publish a signed APK as a GitHub Release
+        type: boolean
+        default: false
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Install packages
+        working-directory: app
+        run: npm ci
+
+      - name: Type check
+        working-directory: app
+        run: npm run typecheck
+
+      - name: Lint (errors fail the build, warnings don't)
+        working-directory: app
+        run: npx eslint App.tsx src __tests__ --quiet
+
+      - name: Security logic tests
+        working-directory: app
+        run: npm test -- --ci
+
+      - name: Release version rules
+        working-directory: app
+        run: npm run test:scripts
+
+      - name: Debug build
+        working-directory: app/android
+        run: ./gradlew assembleDebug --stacktrace
+
+      - name: Keep the debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: vault-debug
+          path: app/android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 14
+
+  release:
+    # Every merge to main, a version tag, or a manual run that asks for a release.
+    if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.release)
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: write
+      pull-requests: read
+    env:
+      HAS_KEYSTORE: ${{ secrets.PM_KEYSTORE_BASE64 != '' }}
+    steps:
+      # On a merge to main, a missing key only warns, so main does not turn red before the key exists.
+      # A tag or a manual release fails, because then a release was clearly wanted.
+      - name: Stop if the signing key has not been added
+        if: env.HAS_KEYSTORE != 'true'
+        run: |
+          if [[ "$GITHUB_EVENT_NAME" == push && "$GITHUB_REF" == refs/heads/main ]]; then
+            echo "::warning::No release: the signing key secrets are missing. See docs/guides/build-pipeline.md."
+            exit 0
+          fi
+          echo "::error::The signing key secrets are missing. See docs/guides/build-pipeline.md."
+          exit 1
+
+      - uses: actions/checkout@v4
+        if: env.HAS_KEYSTORE == 'true'
+
+      - uses: actions/setup-node@v4
+        if: env.HAS_KEYSTORE == 'true'
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - uses: actions/setup-java@v4
+        if: env.HAS_KEYSTORE == 'true'
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v4
+        if: env.HAS_KEYSTORE == 'true'
+
+      # The version comes from the merged PR's label: "release: major", "release: minor", or none for a fix.
+      # A pushed tag such as v2.0.0 is used as it is.
+      - name: Work out the version
+        if: env.HAS_KEYSTORE == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          labels=""
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            version="${GITHUB_REF#refs/tags/v}"
+          else
+            labels=$(gh api "repos/$GITHUB_REPOSITORY/commits/$GITHUB_SHA/pulls" --jq '[.[0].labels[]?.name] | join(",")' || true)
+            tags=$(gh api "repos/$GITHUB_REPOSITORY/tags" --paginate --jq '.[].name')
+            version=$(node app/scripts/next-version.mjs --labels "$labels" --tags "$tags")
+          fi
+          echo "PM_VERSION=$version" >> "$GITHUB_ENV"
+          echo "PM_LABELS=$labels" >> "$GITHUB_ENV"
+          echo "Version $version (labels: ${labels:-none})"
+
+      - name: Install packages
+        if: env.HAS_KEYSTORE == 'true'
+        working-directory: app
+        run: npm ci
+
+      - name: Write the signing key to a temporary file
+        if: env.HAS_KEYSTORE == 'true'
+        run: echo "${{ secrets.PM_KEYSTORE_BASE64 }}" | base64 --decode > "$RUNNER_TEMP/vault.jks"
+
+      - name: Signed release build
+        if: env.HAS_KEYSTORE == 'true'
+        working-directory: app/android
+        env:
+          PM_KEYSTORE_FILE: ${{ runner.temp }}/vault.jks
+          PM_KEYSTORE_PASSWORD: ${{ secrets.PM_KEYSTORE_PASSWORD }}
+          PM_KEY_ALIAS: ${{ secrets.PM_KEY_ALIAS }}
+          PM_KEY_PASSWORD: ${{ secrets.PM_KEY_PASSWORD }}
+          PM_BUILD_NUMBER: ${{ github.run_number }}
+        run: ./gradlew assembleRelease --stacktrace
+
+      - name: Remove the signing key file
+        if: always()
+        run: rm -f "$RUNNER_TEMP/vault.jks"
+
+      # The app's core promise: the release APK cannot reach the network.
+      - name: Check the APK has no network permissions
+        if: env.HAS_KEYSTORE == 'true'
+        run: |
+          aapt=$(ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -1)aapt
+          perms=$("$aapt" dump permissions app/android/app/build/outputs/apk/release/app-release.apk)
+          echo "$perms"
+          if grep -qE "android.permission.(INTERNET|ACCESS_NETWORK_STATE|ACCESS_WIFI_STATE)" <<< "$perms"; then
+            echo "::error::The release APK asks for a network permission. It must be fully offline."
+            exit 1
+          fi
+
+      - name: Publish the release
+        if: env.HAS_KEYSTORE == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then tag="${GITHUB_REF#refs/tags/}"; else tag="v${PM_VERSION}"; fi
+          apk="vault-${PM_VERSION}.apk"
+          cp app/android/app/build/outputs/apk/release/app-release.apk "$apk"
+          gh release create "$tag" "$apk" --target "$GITHUB_SHA" --title "Vault ${PM_VERSION}" --latest \
+            --notes "Version ${PM_VERSION} (build ${GITHUB_RUN_NUMBER}, commit ${GITHUB_SHA::7}, labels: ${PM_LABELS:-none}). Offline build: no network permissions (checked by the pipeline). Install over the existing app; do not uninstall first — uninstalling deletes the vault."
+
+      # Every merge makes a release, so keep only the newest 10 fix releases (such as v0.2.3).
+      # Major and minor releases (v1.0.0, v0.3.0) are always kept.
+      - name: Remove old fix releases
+        if: env.HAS_KEYSTORE == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release list --limit 200 --json tagName,createdAt \
+            --jq '[.[] | select(.tagName | test("^v[0-9]+\\.[0-9]+\\.[1-9][0-9]*$|-build\\.[0-9]+$"))] | sort_by(.createdAt) | reverse | .[10:] | .[].tagName' |
+          while read -r old; do gh release delete "$old" --yes --cleanup-tag; done
