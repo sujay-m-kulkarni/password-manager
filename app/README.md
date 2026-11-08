@@ -14,25 +14,19 @@ Not yet (steps 6–7): export/import, backup reminders, biometrics, recovery key
 
 ## Run it
 
-Prerequisites: Node 22.11+, JDK 17, Android Studio with SDK 36 and an emulator or a phone with USB debugging.
+Full setup, phone setup and debugging: [docs/guides/android-setup.md](../docs/guides/android-setup.md).
 
-```sh
-npm ci                 # installs the exact versions in package-lock.json
-npm test               # 13 logic tests (key wrapping, lockout, strength, generator)
-npm run test:scripts   # release version rules
-npm start              # Metro, in one terminal
-npm run android        # debug build, in another
+```powershell
+npm ci
+npm test                    # logic tests (key wrapping, lockout, strength, generator)
+npm run test:scripts        # release version rules
+npm start                   # Metro, in one window
+npm run android:run         # debug build on a phone or emulator, in another
+npm run android:apk         # test APK in apk\ (debug key, no Metro needed)
+.\scripts\release-apk.ps1 -Keystore C:\Users\kulka\keys\vault.jks   # signed release APK in apk\
 ```
 
-Release APK:
-
-```sh
-cd android && ./gradlew assembleRelease
-# Verify the offline guarantee on the final APK — must NOT list INTERNET:
-$ANDROID_HOME/build-tools/<version>/aapt dump permissions app/build/outputs/apk/release/app-release.apk
-```
-
-Phone installs come from the pipeline's signed releases — see [docs/guides/build-pipeline.md](../docs/guides/build-pipeline.md). A laptop release build without the signing secrets falls back to the debug key, for testing only.
+Everyday installs come from the pipeline's signed releases: [docs/guides/build-pipeline.md](../docs/guides/build-pipeline.md).
 
 ## Where things are
 

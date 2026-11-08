@@ -3,12 +3,14 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "android": "react-native run-android",
     "lint": "eslint .",
     "start": "react-native start",
     "test": "jest",
     "test:scripts": "node --test scripts/next-version.test.mjs",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "android:run": "react-native run-android",
+    "android:apk": "node scripts/android-apk.mjs",
+    "android:apk:release": "node scripts/android-apk.mjs --release"
   },
   "dependencies": {
     "@op-engineering/op-sqlite": "19.0.3",
