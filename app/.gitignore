@@ -76,3 +76,9 @@ yarn-error.log
 
 # Signing keys — never commit
 *.jks
+
+# APK files built on this laptop (scripts/android-apk.mjs)
+/apk
+
+# Written by Android Studio's "Gradle daemon JVM" setting; it would make Gradle download a JDK
+android/gradle/gradle-daemon-jvm.properties
