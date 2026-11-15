@@ -15,7 +15,8 @@ a time.
 | Release APK from this laptop | `.\scripts\release-apk.ps1` | The Vault key | A signed build when GitHub is not an option |
 
 The test APK and both release APKs are the same release build: the app's code is inside, no Metro is needed, and the
-internet permission is removed. Only the key differs. The "run on a connected phone" build is a debug build: it has
+internet permission is removed. Only the key differs. They contain native code for phone processors only (64- and
+32-bit ARM, which covers every Android phone), about 60 MB; an emulator needs the debug build instead. The "run on a connected phone" build is a debug build: it has
 the internet permission and loads its code from Metro on the laptop.
 
 **Keys and uninstalling.** Android only updates an app with one signed by the **same key**. A debug-key build and a

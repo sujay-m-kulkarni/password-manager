@@ -53,7 +53,12 @@ if (!/^\d+\.\d+\.\d+$/.test(version)) {
   process.exit(1);
 }
 
-run(windows ? 'gradlew.bat' : './gradlew', ['assembleRelease'], join(root, 'android'));
+// Phone processors only (64- and 32-bit ARM), as in pipeline releases: about 60 MB instead of 125 MB.
+run(
+  windows ? 'gradlew.bat' : './gradlew',
+  ['assembleRelease', '-PreactNativeArchitectures=armeabi-v7a,arm64-v8a'],
+  join(root, 'android'),
+);
 
 const built = join(root, 'android', 'app', 'build', 'outputs', 'apk', 'release', 'app-release.apk');
 if (!existsSync(built)) {

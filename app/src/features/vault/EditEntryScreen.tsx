@@ -17,7 +17,15 @@ import {
   StrengthBar,
   secretInputProps,
 } from '../../components/ui';
-import { getEntry, listFolders, saveEntry } from '../../db/database';
+import {
+  PIN_MAX,
+  PIN_MIN,
+  getEntry,
+  isValidPin,
+  listFolders,
+  saveEntry,
+  type EntryKind,
+} from '../../db/database';
 import { GeneratorPanel } from '../generator/GeneratorPanel';
 import { useDb, useSession } from '../../store/session';
 import { colors, folderColor, fonts } from '../../theme';
@@ -36,6 +44,10 @@ export function EditEntryScreen({ navigation, route }: Props) {
   );
   const folders = useMemo(() => listFolders(db), [db]);
 
+  const [kind, setKind] = useState<EntryKind>(
+    existing?.kind ?? route.params?.kind ?? 'login',
+  );
+  const pin = kind === 'pin';
   const [title, setTitle] = useState(existing?.title ?? '');
   const [username, setUsername] = useState(existing?.username ?? '');
   const [password, setPassword] = useState(existing?.password ?? '');
@@ -61,14 +73,30 @@ export function EditEntryScreen({ navigation, route }: Props) {
   }, [genOpen]);
   const [error, setError] = useState<string | null>(null);
 
-  const canSave = title.trim().length > 0 && password.length > 0;
+  const pinInvalid = pin && password.length > 0 && !isValidPin(password);
+  const canSave =
+    title.trim().length > 0 &&
+    password.length > 0 &&
+    (!pin || isValidPin(password));
   const strength = estimateStrength(password);
+
+  const switchKind = (next: EntryKind) => {
+    if (next === kind) {
+      return;
+    }
+    setKind(next);
+    // A password rarely makes a valid PIN and vice versa; start the secret afresh.
+    setPassword('');
+    setShowPw(false);
+    setError(null);
+  };
 
   const onSave = () => {
     try {
       const id = saveEntry(
         db,
         {
+          kind,
           folder_id: folderId,
           title,
           username,
@@ -100,7 +128,7 @@ export function EditEntryScreen({ navigation, route }: Props) {
           onPress={() => navigation.goBack()}
         />
         <Text style={s.barTitle}>
-          {editingId != null ? 'Edit password' : 'New password'}
+          {editingId != null ? 'Edit' : 'New'} {pin ? 'PIN' : 'password'}
         </Text>
         <Button title="Save" small onPress={onSave} disabled={!canSave} />
       </View>
@@ -109,51 +137,106 @@ export function EditEntryScreen({ navigation, route }: Props) {
           contentContainerStyle={s.form}
           keyboardShouldPersistTaps="handled"
         >
+          {editingId == null && (
+            <View style={s.kindRow} accessibilityRole="radiogroup">
+              <KindButton
+                label="Login"
+                hint="Username and password"
+                active={!pin}
+                onPress={() => switchKind('login')}
+              />
+              <KindButton
+                label="PIN"
+                hint="Phone, SIM, ATM, UPI"
+                active={pin}
+                onPress={() => switchKind('pin')}
+              />
+            </View>
+          )}
           <Field
             label="Title"
             value={title}
             onChangeText={setTitle}
-            placeholder="e.g. HDFC NetBanking"
+            placeholder={
+              pin ? 'e.g. Phone lock, HDFC ATM, UPI' : 'e.g. HDFC NetBanking'
+            }
             autoFocus={editingId == null}
           />
-          <Field
-            label="Username"
-            value={username}
-            onChangeText={setUsername}
-            autoCapitalize="none"
-            importantForAutofill="no"
-          />
-          <View style={{ gap: 8 }}>
-            <Field
-              label="Password"
-              value={password}
-              onChangeText={setPassword}
-              {...secretInputProps}
-              secureTextEntry={!showPw}
-            />
-            <View style={s.pwTools}>
-              <View style={{ flex: 1 }}>
-                {password.length > 0 && (
-                  <StrengthBar score={strength.score} label={strength.label} />
-                )}
-              </View>
-              <Button
-                title={showPw ? 'Hide' : 'Show'}
-                variant="soft"
-                small
-                onPress={() => setShowPw(v => !v)}
+          {pin ? (
+            <View style={{ gap: 8 }}>
+              <Field
+                label="PIN"
+                value={password}
+                onChangeText={t =>
+                  setPassword(t.replace(/[^0-9]/g, '').slice(0, PIN_MAX))
+                }
+                {...secretInputProps}
+                secureTextEntry={!showPw}
+                keyboardType="number-pad"
+                maxLength={PIN_MAX}
               />
-              <Button title="Generate" small onPress={() => setGenOpen(true)} />
+              <View style={s.pwTools}>
+                <Text style={[s.pinHint, pinInvalid && s.pinHintBad]}>
+                  {PIN_MIN}–{PIN_MAX} digits
+                  {password.length > 0 ? ` · ${password.length} entered` : ''}
+                </Text>
+                <Button
+                  title={showPw ? 'Hide' : 'Show'}
+                  variant="soft"
+                  small
+                  onPress={() => setShowPw(v => !v)}
+                />
+              </View>
             </View>
-          </View>
-          <Field
-            label="Website"
-            value={url}
-            onChangeText={setUrl}
-            autoCapitalize="none"
-            keyboardType="url"
-            importantForAutofill="no"
-          />
+          ) : (
+            <>
+              <Field
+                label="Username"
+                value={username}
+                onChangeText={setUsername}
+                autoCapitalize="none"
+                importantForAutofill="no"
+              />
+              <View style={{ gap: 8 }}>
+                <Field
+                  label="Password"
+                  value={password}
+                  onChangeText={setPassword}
+                  {...secretInputProps}
+                  secureTextEntry={!showPw}
+                />
+                <View style={s.pwTools}>
+                  <View style={{ flex: 1 }}>
+                    {password.length > 0 && (
+                      <StrengthBar
+                        score={strength.score}
+                        label={strength.label}
+                      />
+                    )}
+                  </View>
+                  <Button
+                    title={showPw ? 'Hide' : 'Show'}
+                    variant="soft"
+                    small
+                    onPress={() => setShowPw(v => !v)}
+                  />
+                  <Button
+                    title="Generate"
+                    small
+                    onPress={() => setGenOpen(true)}
+                  />
+                </View>
+              </View>
+              <Field
+                label="Website"
+                value={url}
+                onChangeText={setUrl}
+                autoCapitalize="none"
+                keyboardType="url"
+                importantForAutofill="no"
+              />
+            </>
+          )}
 
           <View style={{ gap: 8 }}>
             <Text style={s.label}>Folder</Text>
@@ -221,6 +304,30 @@ export function EditEntryScreen({ navigation, route }: Props) {
         </View>
       )}
     </SafeAreaView>
+  );
+}
+
+function KindButton({
+  label,
+  hint,
+  active,
+  onPress,
+}: {
+  label: string;
+  hint: string;
+  active: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="radio"
+      accessibilityState={{ checked: active }}
+      onPress={onPress}
+      style={[s.kindBtn, active && s.kindBtnOn]}
+    >
+      <Text style={[s.kindLabel, active && s.kindLabelOn]}>{label}</Text>
+      <Text style={[s.kindHint, active && s.kindHintOn]}>{hint}</Text>
+    </Pressable>
   );
 }
 
@@ -319,4 +426,27 @@ const s = StyleSheet.create({
     backgroundColor: colors.border,
   },
   sheetTitle: { fontFamily: fonts.extrabold, fontSize: 20, color: colors.ink },
+  kindRow: { flexDirection: 'row', gap: 8 },
+  kindBtn: {
+    flex: 1,
+    minHeight: 60,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+    paddingHorizontal: 14,
+    justifyContent: 'center',
+  },
+  kindBtnOn: { backgroundColor: colors.primary, borderColor: colors.primary },
+  kindLabel: { fontFamily: fonts.bold, fontSize: 16, color: colors.ink },
+  kindLabelOn: { color: colors.white },
+  kindHint: { fontFamily: fonts.regular, fontSize: 12, color: colors.muted },
+  kindHintOn: { color: '#EDE8FF' },
+  pinHint: {
+    flex: 1,
+    fontFamily: fonts.semibold,
+    fontSize: 13,
+    color: colors.muted,
+  },
+  pinHintBad: { color: colors.danger },
 });

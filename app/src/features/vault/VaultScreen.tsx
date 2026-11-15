@@ -26,14 +26,15 @@ export function VaultScreen() {
   const dataVersion = useSession(st => st.dataVersion);
   const [search, setSearch] = useState('');
   const [folderId, setFolderId] = useState<number | null>(null);
+  const [pinsOnly, setPinsOnly] = useState(false);
 
   const folders = useMemo(() => listFolders(db), [db, dataVersion]); // eslint-disable-line react-hooks/exhaustive-deps
   const total = useMemo(() => countEntries(db), [db, dataVersion]); // eslint-disable-line react-hooks/exhaustive-deps
   const items = useMemo(
-    () => listEntries(db, search, folderId),
-    [db, search, folderId, dataVersion], // eslint-disable-line react-hooks/exhaustive-deps
+    () => listEntries(db, search, folderId, pinsOnly ? 'pin' : null),
+    [db, search, folderId, pinsOnly, dataVersion], // eslint-disable-line react-hooks/exhaustive-deps
   );
-  const browsing = !search.trim() && folderId == null;
+  const browsing = !search.trim() && folderId == null && !pinsOnly;
   const favorites = browsing ? items.filter(i => i.favorite) : [];
 
   const copy = (id: number) => {
@@ -111,9 +112,30 @@ export function VaultScreen() {
 
       <View>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.chips}>
-          <Chip label="All" active={folderId == null} onPress={() => setFolderId(null)} />
+          <Chip
+            label="All"
+            active={folderId == null && !pinsOnly}
+            onPress={() => {
+              setFolderId(null);
+              setPinsOnly(false);
+            }}
+          />
+          <Chip
+            label="PINs"
+            color="amber"
+            active={pinsOnly}
+            onPress={() => {
+              setFolderId(null);
+              setPinsOnly(true);
+            }}
+          />
           {folders.map(f => (
-            <Chip key={f.id} label={f.name} color={f.color} active={folderId === f.id} onPress={() => setFolderId(f.id)} />
+            <Chip key={f.id} label={f.name} color={f.color} active={folderId === f.id}
+              onPress={() => {
+                setFolderId(f.id);
+                setPinsOnly(false);
+              }}
+            />
           ))}
         </ScrollView>
       </View>
@@ -137,7 +159,7 @@ export function VaultScreen() {
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="Add password"
-        onPress={() => navigation.navigate('Edit', { folderId })}
+        onPress={() => navigation.navigate('Edit', { folderId, kind: pinsOnly ? 'pin' : 'login' })}
         style={s.fab}>
         <Text style={s.fabText}>+</Text>
       </Pressable>
@@ -154,17 +176,24 @@ function Row({ item, onOpen, onCopy }: { item: EntryListItem; onOpen: () => void
           <Text style={[s.avatarText, { color: c.ink }]}>{initial(item.title)}</Text>
         </View>
         <View style={{ flex: 1 }}>
-          <Text style={s.rowTitle} numberOfLines={1}>
-            {item.title}
-          </Text>
-          {!!item.username && (
+          <View style={s.titleRow}>
+            <Text style={[s.rowTitle, s.titleText]} numberOfLines={1}>
+              {item.title}
+            </Text>
+            {item.kind === 'pin' && (
+              <View style={s.pinTag}>
+                <Text style={s.pinTagText}>PIN</Text>
+              </View>
+            )}
+          </View>
+          {item.kind !== 'pin' && !!item.username && (
             <Text style={s.rowUser} numberOfLines={1}>
               {item.username}
             </Text>
           )}
         </View>
       </Pressable>
-      <Pressable accessibilityRole="button" accessibilityLabel={`Copy password for ${item.title}`} onPress={onCopy} style={s.copyBtn}>
+      <Pressable accessibilityRole="button" accessibilityLabel={`Copy ${item.kind === 'pin' ? 'PIN' : 'password'} for ${item.title}`} onPress={onCopy} style={s.copyBtn}>
         <Text style={s.copyText}>Copy</Text>
       </Pressable>
     </View>
@@ -200,6 +229,10 @@ const initial = (t: string) => (t.trim()[0] ?? '?').toUpperCase();
 
 const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
+  titleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  titleText: { flexShrink: 1 },
+  pinTag: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 6, backgroundColor: colors.warnSoft },
+  pinTagText: { fontFamily: fonts.bold, fontSize: 11, color: colors.warnInk, letterSpacing: 0.5 },
   sep: { height: 8 },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 12, paddingBottom: 10 },
   count: { fontFamily: fonts.semibold, fontSize: 13, color: colors.muted },
