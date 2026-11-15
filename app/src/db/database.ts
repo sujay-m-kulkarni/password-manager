@@ -69,6 +69,8 @@ const MIGRATIONS: string[][] = [
     `INSERT INTO folders (name, color) VALUES
       ('Banking', 'blue'), ('Work', 'orange'), ('Email', 'pink'), ('Social', 'green')`,
   ],
+  // v2: PIN entries (phone lock, SIM, ATM/card, UPI). The PIN is kept in `password`.
+  [`ALTER TABLE entries ADD COLUMN kind TEXT NOT NULL DEFAULT 'login'`],
 ];
 
 function migrate(db: DB) {
@@ -96,8 +98,11 @@ function migrate(db: DB) {
 
 export type Folder = { id: number; name: string; color: string };
 
+export type EntryKind = 'login' | 'pin';
+
 export type Entry = {
   id: number;
+  kind: EntryKind;
   folder_id: number | null;
   title: string;
   username: string | null;
@@ -109,11 +114,12 @@ export type Entry = {
   updated_at: number;
 };
 
-export type EntryListItem = Pick<Entry, 'id' | 'title' | 'username' | 'favorite' | 'folder_id'> & {
+export type EntryListItem = Pick<Entry, 'id' | 'kind' | 'title' | 'username' | 'favorite' | 'folder_id'> & {
   folder_color: string | null;
 };
 
 export type EntryInput = {
+  kind: EntryKind;
   folder_id: number | null;
   title: string;
   username: string;
@@ -130,7 +136,7 @@ export function listFolders(db: DB): Folder[] {
   return rows<Folder>(db, 'SELECT id, name, color FROM folders ORDER BY name');
 }
 
-export function listEntries(db: DB, search: string, folderId: number | null): EntryListItem[] {
+export function listEntries(db: DB, search: string, folderId: number | null, kind: EntryKind | null = null): EntryListItem[] {
   const where: string[] = [];
   const params: Scalar[] = [];
   const q = search.trim();
@@ -144,7 +150,11 @@ export function listEntries(db: DB, search: string, folderId: number | null): En
     where.push('e.folder_id = ?');
     params.push(folderId);
   }
-  const sql = `SELECT e.id, e.title, e.username, e.favorite, e.folder_id, f.color AS folder_color
+  if (kind != null) {
+    where.push('e.kind = ?');
+    params.push(kind);
+  }
+  const sql = `SELECT e.id, e.kind, e.title, e.username, e.favorite, e.folder_id, f.color AS folder_color
     FROM entries e LEFT JOIN folders f ON f.id = e.folder_id
     ${where.length ? 'WHERE ' + where.join(' AND ') : ''}
     ORDER BY e.title COLLATE NOCASE`;
@@ -167,26 +177,32 @@ const orNull = (s: string) => (s.trim() ? s.trim() : null);
 
 export function saveEntry(db: DB, input: EntryInput, id?: number): number {
   const now = Date.now();
+  const pin = input.kind === 'pin';
+  if (pin && !isValidPin(input.password)) {
+    throw new Error('A PIN is 4 to 12 digits.');
+  }
   const common: Scalar[] = [
+    input.kind,
     input.folder_id,
     input.title.trim(),
-    orNull(input.username),
+    // A PIN has no username or website; drop any left over from switching type while editing.
+    pin ? null : orNull(input.username),
     input.password,
-    orNull(input.url),
+    pin ? null : orNull(input.url),
     orNull(input.notes),
     input.favorite ? 1 : 0,
   ];
   if (id != null) {
     db.executeSync(
-      `UPDATE entries SET folder_id = ?, title = ?, username = ?, password = ?, url = ?, notes = ?,
+      `UPDATE entries SET kind = ?, folder_id = ?, title = ?, username = ?, password = ?, url = ?, notes = ?,
        favorite = ?, updated_at = ? WHERE id = ?`,
       [...common, now, id],
     );
     return id;
   }
   const res = db.executeSync(
-    `INSERT INTO entries (folder_id, title, username, password, url, notes, favorite, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO entries (kind, folder_id, title, username, password, url, notes, favorite, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [...common, now, now],
   );
   return Number(res.insertId);
@@ -209,4 +225,23 @@ export function setSetting(db: DB, key: string, value: string) {
     'INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value',
     [key, value],
   );
+}
+
+// ---------- PINs ----------
+
+/** Phone lock, SIM, ATM/card and UPI PINs: digits only, 4 to 12 long (an 8-digit SIM PUK fits). */
+export const PIN_MIN = 4;
+export const PIN_MAX = 12;
+
+export function isValidPin(pin: string): boolean {
+  return new RegExp(`^[0-9]{${PIN_MIN},${PIN_MAX}}$`).test(pin);
+}
+
+/** "482913" → "482 913", "1234" → "1234", "12345678" → "1234 5678": easier to read off the screen. */
+export function groupPin(pin: string): string {
+  if (pin.length <= 4) {
+    return pin;
+  }
+  const size = pin.length % 4 === 0 ? 4 : 3;
+  return pin.match(new RegExp(`.{1,${size}}`, 'g'))!.join(' ');
 }

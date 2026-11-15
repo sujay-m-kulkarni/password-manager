@@ -33,6 +33,8 @@ export const folderPalette: Record<string, { solid: string; soft: string; ink: s
   green: { solid: '#15803D', soft: '#DDF5E5', ink: '#166534' },
   sky: { solid: '#0369A1', soft: '#E0F2FE', ink: '#075985' },
   violet: { solid: '#5B3DF5', soft: '#EAE5FF', ink: '#4326D9' },
+  // Used for the PINs filter, not offered as a folder colour.
+  amber: { solid: '#B45309', soft: '#FFF4D6', ink: '#92400E' },
 };
 
 export const folderColor = (key: string | null | undefined) =>

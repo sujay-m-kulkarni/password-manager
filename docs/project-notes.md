@@ -42,11 +42,12 @@ A personal mobile app that stores multiple passwords securely on the user's phon
 12. Search.
 13. Folders or categories.
 14. Password generator with configurable length and character types.
+15. PIN entries (phone lock, SIM, ATM/card, UPI): 4–12 digits, number keypad, no username or website. Stored like passwords, in the encrypted vault (`entries.kind = 'pin'`, schema v2).
 
 **Data safety**
 
-15. Encrypted export and import. This is the only backup mechanism.
-16. Master password change (re-wraps the data key; no full re-encryption needed).
+16. Encrypted export and import. This is the only backup mechanism.
+17. Master password change (re-wraps the data key; no full re-encryption needed).
 
 ### 3.2 Should-haves (include in v1 if feasible)
 

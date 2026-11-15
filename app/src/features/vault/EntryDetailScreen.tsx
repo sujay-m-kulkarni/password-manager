@@ -4,7 +4,7 @@ import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-nati
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ClipboardToast } from '../../components/ClipboardToast';
 import { Button, StrengthBar } from '../../components/ui';
-import { deleteEntry, getEntry, listFolders, setFavorite } from '../../db/database';
+import { deleteEntry, getEntry, listFolders, setFavorite, groupPin } from '../../db/database';
 import { copyWithAutoClear } from '../../security/clipboard';
 import { useDb, useSession } from '../../store/session';
 import { colors, folderColor, fonts } from '../../theme';
@@ -30,6 +30,7 @@ export function EntryDetailScreen({ navigation, route }: Props) {
     return null;
   }
   const c = folderColor(folder?.color);
+  const isPin = entry.kind === 'pin';
   const strength = estimateStrength(entry.password);
 
   const copy = (text: string) => copyWithAutoClear(text, clipboardSec);
@@ -94,13 +95,22 @@ export function EntryDetailScreen({ navigation, route }: Props) {
               <SmallBtn label="Copy username" text="Copy" onPress={() => copy(entry.username!)} />
             </Card>
           )}
-          <Card label="Password" value={shown ? entry.password : '•'.repeat(12)} mono>
-            <SmallBtn label={shown ? 'Hide password' : 'Show password'} text={shown ? 'Hide' : 'Show'} onPress={() => setShown(v => !v)} muted />
-            <SmallBtn label="Copy password" text="Copy" onPress={() => copy(entry.password)} />
-          </Card>
-          <View style={{ paddingHorizontal: 6 }}>
-            <StrengthBar score={strength.score} label={strength.label} />
-          </View>
+          {isPin ? (
+            <Card label="PIN" value={shown ? groupPin(entry.password) : '•'.repeat(entry.password.length)} pin>
+              <SmallBtn label={shown ? 'Hide PIN' : 'Show PIN'} text={shown ? 'Hide' : 'Show'} onPress={() => setShown(v => !v)} muted />
+              <SmallBtn label="Copy PIN" text="Copy" onPress={() => copy(entry.password)} />
+            </Card>
+          ) : (
+            <>
+              <Card label="Password" value={shown ? entry.password : '•'.repeat(12)} mono>
+                <SmallBtn label={shown ? 'Hide password' : 'Show password'} text={shown ? 'Hide' : 'Show'} onPress={() => setShown(v => !v)} muted />
+                <SmallBtn label="Copy password" text="Copy" onPress={() => copy(entry.password)} />
+              </Card>
+              <View style={{ paddingHorizontal: 6 }}>
+                <StrengthBar score={strength.score} label={strength.label} />
+              </View>
+            </>
+          )}
           {!!entry.url && <Card label="Website" value={entry.url} />}
           {!!entry.notes && <Card label="Notes" value={entry.notes} />}
           <Text style={s.meta}>
@@ -114,12 +124,12 @@ export function EntryDetailScreen({ navigation, route }: Props) {
   );
 }
 
-function Card({ label, value, mono, children }: { label: string; value: string; mono?: boolean; children?: React.ReactNode }) {
+function Card({ label, value, mono, pin, children }: { label: string; value: string; mono?: boolean; pin?: boolean; children?: React.ReactNode }) {
   return (
     <View style={s.card}>
       <View style={{ flex: 1 }}>
         <Text style={s.cardLabel}>{label.toUpperCase()}</Text>
-        <Text style={[s.cardValue, mono && s.mono]} selectable={false}>
+        <Text style={[s.cardValue, mono && s.mono, pin && s.pinValue]} selectable={false}>
           {value}
         </Text>
       </View>
@@ -170,6 +180,7 @@ const s = StyleSheet.create({
   cardLabel: { fontFamily: fonts.bold, fontSize: 12, color: colors.muted },
   cardValue: { fontFamily: fonts.semibold, fontSize: 16, color: colors.ink, marginTop: 2 },
   mono: { fontFamily: 'monospace', letterSpacing: 1 },
+  pinValue: { fontFamily: 'monospace', fontSize: 26, letterSpacing: 4, marginTop: 4 },
   smallBtn: { minWidth: 56, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10 },
   smallBtnText: { fontFamily: fonts.bold, fontSize: 14 },
   meta: { fontFamily: fonts.regular, fontSize: 13, color: colors.muted, paddingHorizontal: 6, marginVertical: 6 },

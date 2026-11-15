@@ -21,9 +21,9 @@ All colours live in `app/src/theme.ts`.
 
 1. **Setup** — master password, strength meter, rule: 12+ characters or 4+ words.
 2. **Unlock** — violet hero, master password, lockout message. (Fingerprint button arrives with build step 7.)
-3. **Vault** — search, folder chips, favourite tiles, list with Copy, clipboard countdown toast, + button.
-4. **Entry detail** — header in the folder colour, show/hide/copy, strength bar, website, notes, edit, favourite, delete.
-5. **Add/Edit** — form with a Generate button that opens the generator as a bottom sheet.
+3. **Vault** — search, chips (All · **PINs** · folders), favourite tiles, list with Copy (PIN entries carry an amber PIN tag), clipboard countdown toast, + button (opens a PIN form when the PINs chip is on).
+4. **Entry detail** — header in the folder colour, show/hide/copy, strength bar, website, notes, edit, favourite, delete. A PIN shows large, spaced digits (482 913) and no strength bar.
+5. **Add/Edit** — a **Login / PIN** choice when adding. Login: form with a Generate button that opens the generator as a bottom sheet. PIN: title, a digits-only field on the number keypad (4–12 digits, with a running count), folder, favourite, notes.
 6. **Generator tab** — same generator, with Copy.
 7. **Settings tab** — auto-lock timeout, clipboard timer, lock now. (Backup, recovery key and password change arrive with steps 6–7.)
 
