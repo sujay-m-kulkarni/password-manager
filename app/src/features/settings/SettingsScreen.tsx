@@ -1,13 +1,9 @@
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import React from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button, SectionLabel } from '../../components/ui';
 import { useSession } from '../../store/session';
 import { colors, fonts } from '../../theme';
-import type { RootStackParamList } from '../../navigation/types';
-
-type Props = NativeStackScreenProps<RootStackParamList, 'Settings'>;
 
 const AUTO_LOCK = [
   { sec: 30, label: '30 s' },
@@ -19,16 +15,13 @@ const CLIPBOARD = [
   { sec: 30, label: '30 s' },
 ];
 
-export function SettingsScreen({ navigation }: Props) {
+export function SettingsScreen() {
   const settings = useSession(st => st.settings);
   const update = useSession(st => st.updateSettings);
   const lock = useSession(st => st.lock);
 
   return (
-    <SafeAreaView style={s.root} edges={['top', 'bottom']}>
-      <View style={s.bar}>
-        <Button title="‹ Back" variant="ghost" small onPress={() => navigation.goBack()} />
-      </View>
+    <SafeAreaView style={s.root} edges={['top']}>
       <ScrollView contentContainerStyle={s.content}>
         <Text style={s.title}>Settings</Text>
 
@@ -53,7 +46,7 @@ export function SettingsScreen({ navigation }: Props) {
 
         <Button title="Lock now" variant="dark" onPress={() => lock()} />
 
-        <Text style={s.footer}>Offline build · no internet permission · v0.1 (build steps 1–4)</Text>
+        <Text style={s.footer}>Offline build · no internet permission · build steps 1–5</Text>
       </ScrollView>
     </SafeAreaView>
   );
@@ -89,7 +82,6 @@ function Segmented({
 
 const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
-  bar: { paddingHorizontal: 8, paddingTop: 4 },
   content: { padding: 16, gap: 14 },
   title: { fontFamily: fonts.extrabold, fontSize: 28, color: colors.ink, paddingHorizontal: 4 },
   card: { backgroundColor: colors.surface, borderRadius: 18, padding: 16, gap: 12 },

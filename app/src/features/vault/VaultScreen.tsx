@@ -1,4 +1,5 @@
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import React, { useMemo, useState } from 'react';
 import { FlatList, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -17,9 +18,8 @@ import { useDb, useSession } from '../../store/session';
 import { colors, folderColor, fonts } from '../../theme';
 import type { RootStackParamList } from '../../navigation/types';
 
-type Props = NativeStackScreenProps<RootStackParamList, 'Vault'>;
-
-export function VaultScreen({ navigation }: Props) {
+export function VaultScreen() {
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const db = useDb();
   const lock = useSession(st => st.lock);
   const clipboardSec = useSession(st => st.settings.clipboardSec);
@@ -80,7 +80,7 @@ export function VaultScreen({ navigation }: Props) {
   );
 
   return (
-    <SafeAreaView style={s.root} edges={['top', 'bottom']}>
+    <SafeAreaView style={s.root} edges={['top']}>
       <View style={s.header}>
         <View>
           <Text style={s.count}>
@@ -89,7 +89,6 @@ export function VaultScreen({ navigation }: Props) {
           <Text style={s.title}>My Vault</Text>
         </View>
         <View style={{ flexDirection: 'row', gap: 8 }}>
-          <HeaderButton label="Settings" text="⚙" onPress={() => navigation.navigate('Settings')} />
           <HeaderButton label="Lock vault" text="Lock" onPress={() => lock()} />
         </View>
       </View>

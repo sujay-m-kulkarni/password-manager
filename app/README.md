@@ -1,6 +1,6 @@
 # Vault app — offline password manager (Android)
 
-Build steps 1–4 from the kickoff doc ([docs/project-notes.md](../docs/project-notes.md)), styled as UI Option D.
+Build steps 1–5 from the kickoff doc ([docs/project-notes.md](../docs/project-notes.md)), styled as UI Option D.
 
 | Step | What's in this drop |
 |---|---|
@@ -8,8 +8,9 @@ Build steps 1–4 from the kickoff doc ([docs/project-notes.md](../docs/project-
 | 2. Database | op-sqlite with **SQLCipher** · wrapped-key hierarchy: random 256-bit data key opens the DB as a raw key; Argon2id (64 MiB, 3 passes) derives the key that wraps it · schema + migrations via `user_version` |
 | 3. Auth | Setup with strength rule (12+ chars or 4+ words) · unlock · lockout (3 free tries, then 30 s doubling to 15 min) · auto-lock on background and after inactivity (30 s / 1 min / 5 min) |
 | 4. Vault | List, search, colour-coded folders, favourites, add / edit / delete, show/hide, copy with auto-clear (15 / 30 s) and a countdown toast |
+| 5. Generator | CSPRNG with rejection sampling (no modulo bias), length 8–64, A–Z / a–z / 0–9 / symbols, at least one of each chosen type, avoid look-alikes · Generator tab and a sheet in Add/Edit · offline strength meter that penalises sequences, repeats and common passwords · bottom tabs |
 
-Not in this drop (steps 5–7): password generator, export/import, backup reminders, biometrics, recovery key, master password change. The key design already leaves room for the recovery and biometric wraps.
+Not yet (steps 6–7): export/import, backup reminders, biometrics, recovery key, master password change. The key design already leaves room for the recovery and biometric wraps.
 
 ## Run it
 
@@ -17,7 +18,8 @@ Prerequisites: Node 22.11+, JDK 17, Android Studio with SDK 36 and an emulator o
 
 ```sh
 npm ci                 # installs the exact versions in package-lock.json
-npm test               # 6 logic tests (key wrapping, lockout, password rule)
+npm test               # 13 logic tests (key wrapping, lockout, strength, generator)
+npm run test:scripts   # release version rules
 npm start              # Metro, in one terminal
 npm run android        # debug build, in another
 ```
@@ -41,6 +43,8 @@ src/security/keyHierarchy.ts    create vault, unlock, header (salt, KDF params, 
 src/security/lockout.ts         failed-attempt delays, stored in Keychain
 src/security/AutoLock.tsx       background + inactivity lock
 src/security/clipboard.ts       copy + auto-clear (JS side)
+src/utils/generator.ts          password generator
+src/utils/strength.ts           strength meter and the master password rule
 src/db/database.ts              SQLCipher open, migrations, queries
 src/features/…                  screens
 src/theme.ts                    Option D colours, fonts, folder palette
@@ -54,6 +58,7 @@ android/app/src/main/java/com/vaultapp/secureclipboard/  native clipboard module
 - **Clipboard clearing runs natively.** Clearing on app background (as the original doc said) would wipe the password the moment you switch apps to paste it. The vault still locks on background, but the clipboard is cleared by a native timer that keeps running, and only if it still holds our clip. Pressing **Lock** clears it immediately.
 - **Two files on disk:** `vault.sqlite` (SQLCipher-encrypted) and `vault_meta.sqlite` (plaintext; holds only the salt, KDF parameters and the wrapped data key — nothing secret).
 - **No third-party clipboard package and no icon/SVG library** — fewer packages running next to the vault. Icons are text for now.
+- **The generator sheet is an overlay, not a `Modal`.** An Android dialog window doesn't inherit `FLAG_SECURE`, so a Modal could be screenshotted.
 - **Wrong password detection** is the AES-GCM tag check on the wrapped key, so a wrong guess never touches the database.
 - **Lockout limits** (also in `lockout.ts`): it survives restarts but not "Clear data" or a reinstall. It's a deterrent; the real protection is Argon2id cost plus a strong master password.
 

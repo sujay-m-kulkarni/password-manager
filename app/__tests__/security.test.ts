@@ -31,6 +31,7 @@ jest.mock('react-native-keychain', () => {
 
 import { Buffer, deriveKek, newKdfParams, randomBytes, unwrap, wrap } from '../src/security/crypto';
 import { recordFailure, recordSuccess, remainingWaitMs } from '../src/security/lockout';
+import { generatePassword, generatedEntropyBits } from '../src/utils/generator';
 import { estimateStrength } from '../src/utils/strength';
 
 describe('key wrapping', () => {
@@ -85,10 +86,65 @@ describe('lockout', () => {
 });
 
 describe('master password rule', () => {
-  it('requires 12+ characters or a 4-word passphrase', () => {
+  it('requires 12+ characters or 4+ words, and real strength', () => {
     expect(estimateStrength('short1!').acceptable).toBe(false);
     expect(estimateStrength('abcdefghijk').acceptable).toBe(false);
-    expect(estimateStrength('abcdefghijkl').acceptable).toBe(true);
-    expect(estimateStrength('cat dog sun hat').acceptable).toBe(true);
+    expect(estimateStrength('purple mango river forty').acceptable).toBe(true);
+    expect(estimateStrength('Tq9#vRw!pZ24kB').acceptable).toBe(true);
+  });
+
+  it('rejects sequences, repeats and common passwords even when long', () => {
+    expect(estimateStrength('abcdefghijkl').acceptable).toBe(false);
+    expect(estimateStrength('aaaaaaaaaaaaaaaa').acceptable).toBe(false);
+    expect(estimateStrength('Password123!').acceptable).toBe(false);
+    expect(estimateStrength('qwertyuiop123').acceptable).toBe(false);
+  });
+
+  it('scores a random 20-character password as very strong', () => {
+    expect(estimateStrength('Xq7#tLm9vRw!pZ24kBnE').score).toBe(4);
+  });
+});
+
+describe('generator', () => {
+  const opts = { length: 20, upper: true, lower: true, digits: true, symbols: true, avoidLookAlikes: false };
+
+  it('respects length and includes every chosen character type', () => {
+    for (let i = 0; i < 200; i++) {
+      const pw = generatePassword(opts);
+      expect(pw).toHaveLength(20);
+      expect(pw).toMatch(/[A-Z]/);
+      expect(pw).toMatch(/[a-z]/);
+      expect(pw).toMatch(/[0-9]/);
+      expect(pw).toMatch(/[^A-Za-z0-9]/);
+    }
+  });
+
+  it('uses only the chosen sets and can skip look-alikes', () => {
+    for (let i = 0; i < 200; i++) {
+      const pw = generatePassword({ ...opts, symbols: false, upper: false, avoidLookAlikes: true });
+      expect(pw).toMatch(/^[a-z0-9]+$/);
+      expect(pw).not.toMatch(/[l1o0]/);
+    }
+  });
+
+  it('clamps length to 8..64 and needs at least one set', () => {
+    expect(generatePassword({ ...opts, length: 3 })).toHaveLength(8);
+    expect(generatePassword({ ...opts, length: 500 })).toHaveLength(64);
+    expect(() => generatePassword({ ...opts, upper: false, lower: false, digits: false, symbols: false })).toThrow();
+  });
+
+  it('is roughly uniform over the digits (no modulo bias)', () => {
+    const counts = new Array(10).fill(0);
+    for (let i = 0; i < 2000; i++) {
+      for (const c of generatePassword({ ...opts, length: 10, upper: false, lower: false, symbols: false })) {
+        counts[Number(c)]++;
+      }
+    }
+    const expected = 2000;
+    counts.forEach(n => expect(Math.abs(n - expected) / expected).toBeLessThan(0.1));
+  });
+
+  it('reports entropy for the options', () => {
+    expect(Math.round(generatedEntropyBits(opts))).toBe(Math.round(20 * Math.log2(87)));
   });
 });
