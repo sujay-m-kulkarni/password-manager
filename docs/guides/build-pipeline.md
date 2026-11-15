@@ -63,6 +63,12 @@ installed app**, and since there is no cloud copy you would need an encrypted ex
 
 Until the secrets exist, a merge to `main` skips the release with a warning instead of failing.
 
+Before the 15-minute release build starts, the pipeline opens the key file and checks the alias. A wrong
+`PM_KEYSTORE_BASE64` or `PM_KEYSTORE_PASSWORD` stops it within seconds with a clear message. If `PM_KEY_ALIAS`
+doesn't match the key in the file (a typo, a capital letter, a space), it uses the file's only key and warns,
+naming the alias to put in the secret. To see the alias yourself:
+`& "C:\Users\kulka\.jdks\jbr-21.0.11\bin\keytool.exe" -list -keystore C:\Users\kulka\keys\vault.jks`.
+
 ## Installing on the phone
 
 1. When the run finishes, open the repository's Releases page in the phone's browser.

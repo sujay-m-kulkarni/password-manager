@@ -143,7 +143,37 @@ jobs:
 
       - name: Write the signing key to a temporary file
         if: env.HAS_KEYSTORE == 'true'
-        run: echo "${{ secrets.PM_KEYSTORE_BASE64 }}" | base64 --decode > "$RUNNER_TEMP/vault.jks"
+        # --ignore-garbage: a secret pasted with line breaks or stray characters still decodes.
+        run: echo "${{ secrets.PM_KEYSTORE_BASE64 }}" | base64 --decode --ignore-garbage > "$RUNNER_TEMP/vault.jks"
+
+      # Finds the key's real name (alias) inside the key file, so a typo, capital letter or
+      # trailing space in PM_KEY_ALIAS can't fail the build after 15 minutes of compiling.
+      - name: Check the signing key
+        if: env.HAS_KEYSTORE == 'true'
+        env:
+          STORE_PASSWORD: ${{ secrets.PM_KEYSTORE_PASSWORD }}
+          WANTED_ALIAS: ${{ secrets.PM_KEY_ALIAS }}
+        run: |
+          if ! listing=$(keytool -list -keystore "$RUNNER_TEMP/vault.jks" -storepass "$STORE_PASSWORD" 2>&1); then
+            echo "$listing" | grep -iE "password|tampered|format|invalid" || true
+            echo "::error::Could not open the key file. Check PM_KEYSTORE_BASE64 (made from vault.jks, see docs/guides/build-pipeline.md) and PM_KEYSTORE_PASSWORD."
+            exit 1
+          fi
+          aliases=$(awk -F', ' '/PrivateKeyEntry/ {print $1}' <<< "$listing")
+          count=$(grep -c . <<< "$aliases" || true)
+          wanted=$(echo -n "$WANTED_ALIAS" | tr -d '\r\n' | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')
+          echo "The key file holds $count signing key(s)."
+          if [[ -n "$wanted" ]] && grep -qixF -- "$wanted" <<< "$aliases"; then
+            alias=$(grep -ixF -- "$wanted" <<< "$aliases" | head -1)
+            echo "PM_KEY_ALIAS matches a key in the file."
+          elif [[ "$count" == 1 ]]; then
+            alias="$aliases"
+            echo "::warning::PM_KEY_ALIAS (${#WANTED_ALIAS} characters) does not match the key in vault.jks, which is named '$alias'. Using '$alias'. Update the PM_KEY_ALIAS secret to '$alias' to remove this warning."
+          else
+            echo "::error::PM_KEY_ALIAS does not match any key in vault.jks. Keys in the file: $(paste -sd, <<< "$aliases")"
+            exit 1
+          fi
+          echo "PM_RESOLVED_ALIAS=$alias" >> "$GITHUB_ENV"
 
       - name: Signed release build
         if: env.HAS_KEYSTORE == 'true'
@@ -151,7 +181,7 @@ jobs:
         env:
           PM_KEYSTORE_FILE: ${{ runner.temp }}/vault.jks
           PM_KEYSTORE_PASSWORD: ${{ secrets.PM_KEYSTORE_PASSWORD }}
-          PM_KEY_ALIAS: ${{ secrets.PM_KEY_ALIAS }}
+          PM_KEY_ALIAS: ${{ env.PM_RESOLVED_ALIAS }}
           PM_KEY_PASSWORD: ${{ secrets.PM_KEY_PASSWORD }}
           PM_BUILD_NUMBER: ${{ github.run_number }}
         run: ./gradlew assembleRelease --stacktrace
