@@ -184,7 +184,9 @@ jobs:
           PM_KEY_ALIAS: ${{ env.PM_RESOLVED_ALIAS }}
           PM_KEY_PASSWORD: ${{ secrets.PM_KEY_PASSWORD }}
           PM_BUILD_NUMBER: ${{ github.run_number }}
-        run: ./gradlew assembleRelease --stacktrace
+        # Phone processors only (64- and 32-bit ARM): every Android phone, about 60 MB instead of 125 MB.
+        # Emulators (x86) use a debug build from Android Studio, which still builds for all four.
+        run: ./gradlew assembleRelease -PreactNativeArchitectures=armeabi-v7a,arm64-v8a --stacktrace
 
       - name: Remove the signing key file
         if: always()

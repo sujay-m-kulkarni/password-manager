@@ -8,6 +8,9 @@ The file `.github/workflows/android.yml` runs on GitHub Actions. It works the sa
 | Every merge to `main` | All of the above, then a signed release build and a **network-permission check** | A GitHub Release such as **Vault 0.2.0**, tagged `v0.2.0`, with the APK attached and marked Latest. |
 | A tag such as `v1.0.0` is pushed, or "Run workflow" is pressed with **release** ticked | The same as a merge to `main` | A pushed tag is used as it is; a manual run counts as a fix. |
 
+**APK size.** Release APKs include native code for phone processors only, 64- and 32-bit ARM (about 60 MB). The
+x86 copies for emulators are left out; the phone installs only its own copy, about 40 MB.
+
 **The offline check.** After the release build, the pipeline lists the APK's permissions and fails if it asks for
 `INTERNET`, `ACCESS_NETWORK_STATE` or `ACCESS_WIFI_STATE`. A release that could reach the network is never published.
 
