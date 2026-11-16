@@ -144,6 +144,11 @@ export function SettingsScreen() {
           <NavRow label="Restore from a backup" onPress={() => navigation.navigate('Restore')} />
         </View>
 
+        <SectionLabel>Help</SectionLabel>
+        <View style={s.list}>
+          <NavRow label="How to use Vault" onPress={() => navigation.navigate('Help')} />
+        </View>
+
         <Button title="Lock now" variant="dark" onPress={() => lock()} />
         <Text style={s.footer}>Offline build · no internet permission</Text>
       </ScrollView>

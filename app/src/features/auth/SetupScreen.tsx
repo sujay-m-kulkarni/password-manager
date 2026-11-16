@@ -3,6 +3,8 @@
  * Or "Restore from a backup" (new phone): pick the file → its master password or recovery key.
  */
 import type { DB } from '@op-engineering/op-sqlite';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import React, { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import {
@@ -23,6 +25,7 @@ import {
   createVaultFromBackup,
   notePasswordUnlock,
 } from '../../security/keyHierarchy';
+import type { RootStackParamList } from '../../navigation/types';
 import { useSession } from '../../store/session';
 import { colors, fonts } from '../../theme';
 
@@ -37,6 +40,7 @@ type Step =
 export function SetupScreen() {
   const unlocked = useSession(st => st.unlocked);
   const [step, setStep] = useState<Step>({ name: 'password' });
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
   const finish = (o: Opened) => unlocked(o.db, o.dek);
 
@@ -59,6 +63,9 @@ export function SetupScreen() {
           />
           <Pressable accessibilityRole="button" onPress={() => setStep({ name: 'restore' })} style={st.link}>
             <Text style={st.linkText}>New phone? Restore from a backup</Text>
+          </Pressable>
+          <Pressable accessibilityRole="button" onPress={() => navigation.navigate('Help')} style={st.link}>
+            <Text style={st.linkText}>How to use Vault</Text>
           </Pressable>
         </Screen>
       );
