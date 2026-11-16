@@ -126,6 +126,7 @@ Later releases install over it and keep the vault.
 
 | What | How |
 |---|---|
+| The app closed by itself | Open Vault again: from Android 11, a **"Vault closed unexpectedly last time"** screen shows the reason Android recorded (Java/JavaScript error with stack trace, or native crash with the readable part of the tombstone). Tap **Share report** and send it. No USB debugging needed |
 | JavaScript logs and errors | Debug builds only: Metro's window, or press `j` in it to open the React Native DevTools |
 | Native logs | Android Studio, **Logcat**, filter `package:com.vaultapp` |
 | Kotlin breakpoints (the clipboard module) | Android Studio: open `app\android`, set a breakpoint in `SecureClipboardModule.kt`, press **Debug** |

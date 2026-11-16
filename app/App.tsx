@@ -4,6 +4,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import React, { useEffect } from 'react';
 import { ActivityIndicator, StatusBar, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { CrashReportNotice } from './src/components/CrashReportNotice';
 import { SetupScreen } from './src/features/auth/SetupScreen';
 import { UnlockScreen } from './src/features/auth/UnlockScreen';
 import { GeneratorScreen } from './src/features/generator/GeneratorScreen';
@@ -77,6 +78,7 @@ export default function App() {
           </Stack.Navigator>
         </NavigationContainer>
       </AutoLock>
+      <CrashReportNotice />
     </SafeAreaProvider>
   );
 }
