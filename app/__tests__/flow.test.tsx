@@ -156,3 +156,71 @@ test('the guide opens from the unlock screen, without unlocking', async () => {
     await wait(50);
   });
 });
+
+test('saving an entry returns to the list, for new and edited entries', async () => {
+  let r!: ReactTestRenderer.ReactTestRenderer;
+  await act(async () => {
+    r = ReactTestRenderer.create(<App />);
+    await wait(50);
+  });
+  // Unlock (the first test changed the password).
+  await act(async () => {
+    r.root.findAllByType(TextInput)[0].props.onChangeText('seven quiet blue lanterns');
+  });
+  await pressButton(r, 'Unlock');
+  expect(textOf(r)).toContain('My Vault');
+
+  const fab = () => r.root.findAll(n => n.props.accessibilityLabel === 'Add password' && typeof n.props.onPress === 'function')[0];
+  const fill = async (title: string, secret: string) => {
+    const inputs = r.root.findAllByType(TextInput);
+    const byLabel = (l: string) => inputs.find(i => i.props.accessibilityLabel === l)!;
+    await act(async () => {
+      byLabel('Title').props.onChangeText(title);
+      (byLabel('Password') ?? byLabel('PIN')).props.onChangeText(secret);
+    });
+  };
+
+  // New login → back on the list.
+  await act(async () => {
+    fab().props.onPress();
+    await wait(50);
+  });
+  await fill('Netflix', 'Xq7#tLm9vRw!pZ24');
+  await pressButton(r, 'Save');
+  let t = textOf(r);
+  expect(t).toContain('My Vault');
+  expect(t).toContain('Netflix');
+  expect(t).not.toContain('Delete entry'); // not the entry's own page
+
+  // New PIN → back on the list.
+  await act(async () => {
+    fab().props.onPress();
+    await wait(50);
+  });
+  await act(async () => {
+    r.root.findAll(n => n.props.accessibilityRole === 'radio' && n.findAll(x => x.props.children === 'PIN').length > 0)[0].props.onPress();
+  });
+  await fill('Phone lock', '482913');
+  await pressButton(r, 'Save');
+  t = textOf(r);
+  expect(t).toContain('My Vault');
+  expect(t).toContain('Phone lock');
+
+  // Edit from the entry's page → back on the list, not the entry page.
+  await pressButton(r, 'Netflix');
+  expect(textOf(r)).toContain('Delete entry');
+  await pressButton(r, 'Edit');
+  await act(async () => {
+    r.root.findAllByType(TextInput).find(i => i.props.accessibilityLabel === 'Title')!.props.onChangeText('Netflix family');
+  });
+  await pressButton(r, 'Save');
+  t = textOf(r);
+  expect(t).toContain('My Vault');
+  expect(t).toContain('Netflix family');
+  expect(t).not.toContain('Delete entry');
+
+  await act(async () => {
+    r.unmount();
+    await wait(50);
+  });
+});
