@@ -24,7 +24,14 @@ export function AutoLock({ children }: { children: React.ReactNode }) {
       clearTimeout(timer.current);
     }
     if (status === 'unlocked') {
-      timer.current = setTimeout(() => lock(), timeoutSec * 1000);
+      timer.current = setTimeout(() => {
+        // A file picker or fingerprint screen is open: wait for it instead of locking under it.
+        if (useSession.getState().autoLockPaused > 0) {
+          activityPing?.();
+        } else {
+          lock();
+        }
+      }, timeoutSec * 1000);
     }
   }, [lock, status, timeoutSec]);
 
@@ -44,7 +51,8 @@ export function AutoLock({ children }: { children: React.ReactNode }) {
       if (next === 'background') {
         // Lock the vault, but keep a just-copied password so it can be pasted in the
         // other app; the native timer clears it.
-        if (useSession.getState().status === 'unlocked') {
+        const st = useSession.getState();
+        if (st.status === 'unlocked' && st.autoLockPaused === 0) {
           lock({ keepClipboard: true });
         }
       }

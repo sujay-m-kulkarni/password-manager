@@ -8,6 +8,7 @@ import com.facebook.react.ReactNativeApplicationEntryPoint.loadReactNative
 import com.facebook.react.defaults.DefaultReactHost.getDefaultReactHost
 import com.vaultapp.crashreport.CrashReportModule
 import com.vaultapp.crashreport.CrashReportPackage
+import com.vaultapp.files.VaultFilesPackage
 import com.vaultapp.secureclipboard.SecureClipboardPackage
 
 class MainApplication : Application(), ReactApplication {
@@ -19,6 +20,7 @@ class MainApplication : Application(), ReactApplication {
         PackageList(this).packages.apply {
           add(SecureClipboardPackage())
           add(CrashReportPackage())
+          add(VaultFilesPackage())
         },
     )
   }

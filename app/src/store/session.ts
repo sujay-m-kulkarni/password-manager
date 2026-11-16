@@ -3,6 +3,7 @@ import { useRef } from 'react';
 import { create } from 'zustand';
 import { getSetting, setSetting } from '../db/database';
 import { clearClipboardNow } from '../security/clipboard';
+import { wipe, type Buffer } from '../security/crypto';
 import { vaultExists } from '../security/keyHierarchy';
 
 export type Status = 'loading' | 'setup' | 'locked' | 'unlocked';
@@ -14,11 +15,17 @@ const DEFAULTS: Settings = { autoLockSec: 60, clipboardSec: 30 };
 type Session = {
   status: Status;
   db: DB | null;
+  /** The data key while unlocked (for fingerprint setup, recovery key, backups); wiped on lock. */
+  dek: Buffer | null;
+  /** >0 while Android's file picker or a fingerprint/phone-lock screen is open: don't lock on background. */
+  autoLockPaused: number;
   settings: Settings;
   /** Bumped after every write so screens re-query. */
   dataVersion: number;
   init: () => void;
-  unlocked: (db: DB) => void;
+  unlocked: (db: DB, dek: Buffer) => void;
+  /** Runs fn with auto-lock paused (Android screens that put Vault in the background). */
+  withAutoLockPaused: <T>(fn: () => Promise<T>) => Promise<T>;
   /** keepClipboard: leave a just-copied password for its native timer (used on app background). */
   lock: (opts?: { keepClipboard?: boolean }) => void;
   touchData: () => void;
@@ -28,6 +35,8 @@ type Session = {
 export const useSession = create<Session>((set, get) => ({
   status: 'loading',
   db: null,
+  dek: null,
+  autoLockPaused: 0,
   settings: DEFAULTS,
   dataVersion: 0,
 
@@ -35,16 +44,26 @@ export const useSession = create<Session>((set, get) => ({
     set({ status: vaultExists() ? 'locked' : 'setup' });
   },
 
-  unlocked: (db: DB) => {
+  unlocked: (db: DB, dek: Buffer) => {
     const settings: Settings = {
       autoLockSec: Number(getSetting(db, 'auto_lock_sec') ?? DEFAULTS.autoLockSec),
       clipboardSec: Number(getSetting(db, 'clipboard_sec') ?? DEFAULTS.clipboardSec),
     };
-    set({ db, settings, status: 'unlocked' });
+    set({ db, dek, settings, status: 'unlocked' });
+  },
+
+  withAutoLockPaused: async fn => {
+    set(s => ({ autoLockPaused: s.autoLockPaused + 1 }));
+    try {
+      return await fn();
+    } finally {
+      set(s => ({ autoLockPaused: Math.max(0, s.autoLockPaused - 1) }));
+    }
   },
 
   lock: (opts?: { keepClipboard?: boolean }) => {
-    const { db } = get();
+    const { db, dek } = get();
+    wipe(dek);
     if (!opts?.keepClipboard) {
       clearClipboardNow();
     }
@@ -55,7 +74,7 @@ export const useSession = create<Session>((set, get) => ({
         // already closed
       }
     }
-    set({ db: null, status: 'locked' });
+    set({ db: null, dek: null, status: 'locked' });
   },
 
   touchData: () => set(s => ({ dataVersion: s.dataVersion + 1 })),

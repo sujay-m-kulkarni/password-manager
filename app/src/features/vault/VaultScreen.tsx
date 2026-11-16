@@ -13,6 +13,8 @@ import {
   type EntryListItem,
 } from '../../db/database';
 import { pingActivity } from '../../security/AutoLock';
+import { backupDue } from '../../security/backup';
+import { useExportBackup } from '../settings/useExportBackup';
 import { copyWithAutoClear } from '../../security/clipboard';
 import { useDb, useSession } from '../../store/session';
 import { colors, folderColor, fonts } from '../../theme';
@@ -36,6 +38,8 @@ export function VaultScreen() {
   );
   const browsing = !search.trim() && folderId == null && !pinsOnly;
   const favorites = browsing ? items.filter(i => i.favorite) : [];
+  const remind = useMemo(() => backupDue(db), [db, dataVersion]); // eslint-disable-line react-hooks/exhaustive-deps
+  const { exportNow, busy: exporting } = useExportBackup();
 
   const copy = (id: number) => {
     const pw = getPassword(db, id);
@@ -46,6 +50,12 @@ export function VaultScreen() {
 
   const Header = (
     <View style={{ gap: 12 }}>
+      {browsing && remind && (
+        <Pressable accessibilityRole="button" onPress={exportNow} disabled={exporting} style={s.remind}>
+          <Text style={s.remindText}>Back up your vault: export an encrypted copy and keep it off this phone.</Text>
+          <Text style={s.remindAction}>{exporting ? 'Saving…' : 'Export'}</Text>
+        </Pressable>
+      )}
       {favorites.length > 0 && (
         <>
           <SectionLabel>Favorites</SectionLabel>
@@ -229,6 +239,9 @@ const initial = (t: string) => (t.trim()[0] ?? '?').toUpperCase();
 
 const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
+  remind: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: colors.warnSoft, borderRadius: 14, padding: 14 },
+  remindText: { flex: 1, fontFamily: fonts.regular, fontSize: 14, lineHeight: 19, color: colors.warnInk },
+  remindAction: { fontFamily: fonts.bold, fontSize: 15, color: colors.primary },
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   titleText: { flexShrink: 1 },
   pinTag: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 6, backgroundColor: colors.warnSoft },

@@ -10,7 +10,10 @@ Build steps 1–5 from the kickoff doc ([docs/project-notes.md](../docs/project-
 | 4. Vault | List, search, colour-coded folders, favourites, add / edit / delete, show/hide, copy with auto-clear (15 / 30 s) and a countdown toast |
 | 5. Generator | CSPRNG with rejection sampling (no modulo bias), length 8–64, A–Z / a–z / 0–9 / symbols, at least one of each chosen type, avoid look-alikes · Generator tab and a sheet in Add/Edit · offline strength meter that penalises sequences, repeats and common passwords · bottom tabs |
 
-Not yet (steps 6–7): export/import, backup reminders, biometrics, recovery key, master password change. The key design already leaves room for the recovery and biometric wraps.
+| 6. Backup | Encrypted export/import through Android's file picker (`.vaultbackup`, opens with the master password it was made with or the recovery key); restore on a new phone from the Setup screen; reminder on the vault screen and in Settings |
+| 7. Keys | Recovery key (24 characters, shown once); fingerprint unlock, optionally also the phone's screen lock, with the master password asked weekly; change master password (re-wraps the data key in seconds) |
+
+Also: PIN entries, crash report on next launch, ARM-only release APK.
 
 ## Run it
 
