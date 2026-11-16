@@ -1,4 +1,6 @@
 import type { DB } from '@op-engineering/op-sqlite';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -14,6 +16,7 @@ import {
   unlockWithRecoveryKey,
 } from '../../security/keyHierarchy';
 import { recordFailure, recordSuccess, remainingWaitMs } from '../../security/lockout';
+import type { RootStackParamList } from '../../navigation/types';
 import { useSession } from '../../store/session';
 import { colors, fonts } from '../../theme';
 
@@ -21,6 +24,7 @@ type Mode = 'password' | 'recovery' | { newPassword: { db: DB; dek: Buffer } };
 
 export function UnlockScreen() {
   const unlocked = useSession(s => s.unlocked);
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [mode, setMode] = useState<Mode>('password');
   const [secret, setSecret] = useState('');
   const [busy, setBusy] = useState(false);
@@ -187,6 +191,9 @@ export function UnlockScreen() {
                 <Text style={s.linkText}>{recovery ? 'Use master password instead' : 'Forgot password? Use recovery key'}</Text>
               </Pressable>
             )}
+            <Pressable accessibilityRole="button" onPress={() => navigation.navigate('Help')} style={s.link}>
+              <Text style={s.linkText}>How to use Vault</Text>
+            </Pressable>
             <View style={{ flex: 1 }} />
             <Text style={s.footer}>Offline · Encrypted on this phone</Text>
           </View>

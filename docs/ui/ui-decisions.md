@@ -36,3 +36,18 @@ Bottom tabs: Vault · Generator · Settings.
 - Icons are text glyphs for now; no icon or SVG package, to keep dependencies running next to the vault to a minimum.
 - The generator sheet is an in-screen overlay rather than an Android dialog, because a dialog window doesn't inherit
   the screenshot block (`FLAG_SECURE`).
+
+## App icon
+
+**Shield keyhole** (chosen 16 Nov 2026 from four options on the design canvas): a white shield on Vault violet
+`#5B3DF5`, with the keyhole cut out so the background shows through. It's the same shield as the Vault tab.
+
+- Android 8+: adaptive icon (`mipmap-anydpi-v26`), foreground `drawable/ic_launcher_foreground.xml` (vector, inside the
+  66dp safe zone), background colour `ic_launcher_background`. The same vector is the Android 13+ themed (monochrome) icon.
+- Android 7: PNGs in `mipmap-*dpi`, rendered from the same path.
+
+## Guide
+
+"How to use Vault" (Help screen) opens from the Setup and Unlock screens without unlocking, and from Settings. It covers
+getting started, unlocking, saving passwords and PINs, copying, backups, what to do when something goes wrong, and
+keeping the vault safe. It holds no vault data.

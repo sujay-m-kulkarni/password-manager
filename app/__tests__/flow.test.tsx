@@ -136,3 +136,23 @@ test('shows the crash report from the last run, once', async () => {
     await wait(50);
   });
 });
+
+test('the guide opens from the unlock screen, without unlocking', async () => {
+  let r!: ReactTestRenderer.ReactTestRenderer;
+  await act(async () => {
+    r = ReactTestRenderer.create(<App />);
+    await wait(50);
+  });
+  expect(textOf(r)).toContain('Welcome back');
+  await pressButton(r, 'How to use Vault');
+  expect(textOf(r)).toContain('Getting started');
+  expect(textOf(r)).toContain('Write it on paper');
+  await pressButton(r, 'Backups');
+  expect(textOf(r)).toContain('Settings › Export backup');
+  await pressButton(r, '‹ Back');
+  expect(textOf(r)).toContain('Welcome back');
+  await act(async () => {
+    r.unmount();
+    await wait(50);
+  });
+});

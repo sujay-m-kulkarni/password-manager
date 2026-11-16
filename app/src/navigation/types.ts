@@ -15,4 +15,5 @@ export type RootStackParamList = {
   ChangePassword: undefined;
   RecoveryKey: undefined;
   Restore: undefined;
+  Help: undefined;
 };

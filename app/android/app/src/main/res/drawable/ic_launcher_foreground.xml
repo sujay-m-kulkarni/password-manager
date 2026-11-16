@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Vault app icon: white shield with a keyhole cut out (the background shows through).
+     Drawn on the 108dp adaptive-icon canvas; the shield stays inside the 66dp safe zone. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#FFFFFF"
+        android:fillType="evenOdd"
+        android:pathData="M54,24 L78,33 L78,51 C78,67 68,78 54,84 C40,78 30,67 30,51 L30,33 Z M50.08,55.8 A7,7 0 1,1 57.92,55.8 L60,68 L48,68 Z" />
+</vector>
