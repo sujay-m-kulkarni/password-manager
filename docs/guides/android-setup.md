@@ -24,7 +24,7 @@ Vault-key build cannot replace each other; you have to uninstall one to install 
 the vault**. There is no server copy to fall back on. So:
 
 - Put real passwords only into a build signed with the Vault key.
-- Before uninstalling, export an encrypted backup (from build step 6 onwards) and keep it off the phone.
+- Before uninstalling, export an encrypted backup (Settings › Export backup) and keep it off the phone.
 
 **Versions.** A laptop build is numbered from `package.json` (0.1.0 is version code 100); pipeline builds are
 1,000,000 and up. A pipeline release therefore installs over a laptop release build, but a laptop build cannot be

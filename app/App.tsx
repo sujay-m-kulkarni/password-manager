@@ -8,6 +8,7 @@ import { CrashReportNotice } from './src/components/CrashReportNotice';
 import { SetupScreen } from './src/features/auth/SetupScreen';
 import { UnlockScreen } from './src/features/auth/UnlockScreen';
 import { GeneratorScreen } from './src/features/generator/GeneratorScreen';
+import { ChangePasswordScreen, RecoveryKeyScreen, RestoreScreen } from './src/features/settings/KeyScreens';
 import { SettingsScreen } from './src/features/settings/SettingsScreen';
 import { EditEntryScreen } from './src/features/vault/EditEntryScreen';
 import { EntryDetailScreen } from './src/features/vault/EntryDetailScreen';
@@ -73,6 +74,9 @@ export default function App() {
                 <Stack.Screen name="Tabs" component={Tabs} />
                 <Stack.Screen name="Entry" component={EntryDetailScreen} />
                 <Stack.Screen name="Edit" component={EditEntryScreen} options={{ animation: 'slide_from_bottom' }} />
+                <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />
+                <Stack.Screen name="RecoveryKey" component={RecoveryKeyScreen} />
+                <Stack.Screen name="Restore" component={RestoreScreen} />
               </>
             )}
           </Stack.Navigator>

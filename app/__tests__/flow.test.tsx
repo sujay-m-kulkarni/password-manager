@@ -1,74 +1,16 @@
 /**
- * End-to-end flow in Node: render the whole App, create a vault on the Setup screen,
- * and check the Vault screen appears. op-sqlite is backed by Node's built-in SQLite.
+ * End-to-end flows in Node: render the whole App against real SQLite (test-support/nodeSqlite).
  */
-jest.mock('@op-engineering/op-sqlite', () => {
-  const { DatabaseSync } = require('node:sqlite');
-  const path = require('path');
-  const fs = require('fs');
-  const os = require('os');
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'vault-'));
-  return {
-    open: ({ name, encryptionKey }: { name: string; encryptionKey?: string }) => {
-      const file = path.join(dir, name);
-      const raw = new DatabaseSync(file);
-      return {
-        executeSync: (sql: string, params: unknown[] = []) => {
-          const t = sql.trim().toUpperCase();
-          if (t.startsWith('SELECT') || (t.startsWith('PRAGMA') && !t.includes('='))) {
-            return { rows: raw.prepare(sql).all(...params), insertId: undefined };
-          }
-          if (params.length === 0) {
-            raw.exec(sql);
-            return { rows: [], insertId: undefined };
-          }
-          const r = raw.prepare(sql).run(...params);
-          return { rows: [], insertId: Number(r.lastInsertRowid) };
-        },
-        close: () => raw.close(),
-        delete: () => {
-          raw.close();
-          fs.rmSync(file, { force: true });
-        },
-        _key: encryptionKey,
-      };
-    },
-  };
-});
-
-jest.mock('react-native-quick-crypto', () => {
-  const nodeCrypto = require('crypto');
-  const NodeBuffer = require('buffer').Buffer;
-  return {
-    __esModule: true,
-    default: {
-      randomBytes: (n: number) => nodeCrypto.randomBytes(n),
-      createCipheriv: nodeCrypto.createCipheriv,
-      createDecipheriv: nodeCrypto.createDecipheriv,
-      argon2: (_a: string, p: any, cb: any) => nodeCrypto.scrypt(p.message, p.nonce, p.tagLength, cb),
-    },
-    Buffer: NodeBuffer,
-  };
-});
-
-jest.mock('react-native-keychain', () => {
-  const store = new Map<string, string>();
-  return {
-    ACCESSIBLE: { WHEN_UNLOCKED_THIS_DEVICE_ONLY: 'x' },
-    getGenericPassword: async ({ service }: any) => (store.has(service) ? { password: store.get(service) } : false),
-    setGenericPassword: async (_u: string, p: string, { service }: any) => {
-      store.set(service, p);
-      return true;
-    },
-  };
-});
-
+jest.mock('@op-engineering/op-sqlite', () => require('../test-support/nodeSqlite').create());
+jest.mock('react-native-quick-crypto', () => require('../test-support/nodeCrypto'));
+jest.mock('react-native-keychain', () => require('../test-support/keychain'));
 jest.mock('react-native-safe-area-context', () => require('react-native-safe-area-context/jest/mock').default);
 
 import React from 'react';
 import ReactTestRenderer, { act } from 'react-test-renderer';
 import { NativeModules, TextInput } from 'react-native';
 import App from '../App';
+import { useSession } from '../src/store/session';
 
 const wait = (ms: number) => new Promise<void>(res => setTimeout(() => res(), ms));
 
@@ -109,9 +51,61 @@ test('setup creates the vault and opens the Vault screen', async () => {
   });
   await pressButton(r, 'Create vault');
 
+  // Step 2: the recovery key is shown once and must be confirmed as written down.
+  expect(textOf(r)).toContain('Your recovery key');
+  const code = r.root
+    .findAll(n => typeof n.props.accessibilityLabel === 'string' && n.props.accessibilityLabel.startsWith('Recovery key '))[0]
+    .props.accessibilityLabel.replace('Recovery key ', '')
+    .replace(/ /g, '');
+  expect(code).toMatch(/^[0-9A-Z-]{29}$/);
+  const continueBtn = () =>
+    r.root.findAll(n => n.props.accessibilityRole === 'button' && n.findAll(t => t.props.children === 'Continue').length > 0)[0];
+  expect(continueBtn().props.accessibilityState.disabled).toBe(true);
+  await act(async () => {
+    r.root.findAll(n => n.props.accessibilityRole === 'checkbox')[0].props.onPress();
+  });
+  await pressButton(r, 'Continue');
+
+  // Step 3: no fingerprint hardware in the test, so it explains and continues.
+  expect(textOf(r)).toContain('Unlock with your fingerprint');
+  await pressButton(r, 'Continue');
+
   const after = textOf(r);
   expect(after).toContain('My Vault');
   expect(after).toContain('Banking');
+
+  // Forgot password: lock, unlock with the recovery key, choose a new master password.
+  await act(async () => {
+    useSession.getState().lock();
+    await wait(50);
+  });
+  expect(textOf(r)).toContain('Welcome back');
+  await act(async () => {
+    r.root.findAll(n => n.props.accessibilityRole === 'button' && n.findAll(t => t.props.children === 'Forgot password? Use recovery key').length > 0)[0].props.onPress();
+  });
+  await act(async () => {
+    r.root.findAllByType(TextInput)[0].props.onChangeText(code.toLowerCase());
+  });
+  await pressButton(r, 'Unlock');
+  expect(textOf(r)).toContain('Set a new master password');
+  const pwInputs = r.root.findAllByType(TextInput);
+  await act(async () => {
+    pwInputs[0].props.onChangeText('seven quiet blue lanterns');
+    pwInputs[1].props.onChangeText('seven quiet blue lanterns');
+  });
+  await pressButton(r, 'Save and open Vault');
+  expect(textOf(r)).toContain('My Vault');
+
+  // The new password now opens the vault.
+  await act(async () => {
+    useSession.getState().lock();
+    await wait(50);
+  });
+  await act(async () => {
+    r.root.findAllByType(TextInput)[0].props.onChangeText('seven quiet blue lanterns');
+  });
+  await pressButton(r, 'Unlock');
+  expect(textOf(r)).toContain('My Vault');
   await act(async () => {
     r.unmount();
     await wait(50);

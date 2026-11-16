@@ -1,24 +1,42 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { KeyboardAvoidingView, ScrollView, StyleSheet, Text, View } from 'react-native';
+import type { DB } from '@op-engineering/op-sqlite';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { NewPasswordForm, Screen } from '../../components/keyForms';
 import { Banner, Button, Field, secretInputProps } from '../../components/ui';
-import { unlockWithPassword } from '../../security/keyHierarchy';
+import * as Biometric from '../../security/biometric';
+import type { Buffer } from '../../security/crypto';
+import {
+  changePassword,
+  hasRecoveryKey,
+  unlockWithDek,
+  unlockWithPassword,
+  unlockWithRecoveryKey,
+} from '../../security/keyHierarchy';
 import { recordFailure, recordSuccess, remainingWaitMs } from '../../security/lockout';
 import { useSession } from '../../store/session';
 import { colors, fonts } from '../../theme';
 
+type Mode = 'password' | 'recovery' | { newPassword: { db: DB; dek: Buffer } };
+
 export function UnlockScreen() {
   const unlocked = useSession(s => s.unlocked);
-  const [pw, setPw] = useState('');
+  const [mode, setMode] = useState<Mode>('password');
+  const [secret, setSecret] = useState('');
   const [busy, setBusy] = useState(false);
   const [waitMs, setWaitMs] = useState(0);
   const [message, setMessage] = useState<string | null>(null);
+  const [bio, setBio] = useState<{ enabled: boolean; due: boolean }>(() => ({
+    enabled: Biometric.isEnabled(),
+    due: Biometric.passwordDue(),
+  }));
+  const autoPrompted = useRef(false);
 
-  const refreshWait = useCallback(async () => setWaitMs(await remainingWaitMs()), []);
-
-  useEffect(() => {
-    refreshWait();
-  }, [refreshWait]);
+  const refreshWait = useCallback(async () => {
+    const w = await remainingWaitMs();
+    setWaitMs(w);
+    return w;
+  }, []);
 
   // Count down while locked out.
   useEffect(() => {
@@ -29,25 +47,65 @@ export function UnlockScreen() {
     return () => clearInterval(t);
   }, [waitMs > 0]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const onUnlock = async () => {
+  const tryBiometric = useCallback(async () => {
+    setMessage(null);
+    const r = await Biometric.getDek();
+    if (r.kind === 'ok') {
+      try {
+        const db = unlockWithDek(r.dek);
+        await recordSuccess();
+        unlocked(db, r.dek);
+      } catch {
+        await Biometric.disable();
+        setBio({ enabled: false, due: bio.due });
+        setMessage('Fingerprint unlock no longer matches this vault and was turned off. Use your master password.');
+      }
+    } else if (r.kind === 'unavailable') {
+      setBio({ enabled: Biometric.isEnabled(), due: bio.due });
+      setMessage(r.message);
+    }
+  }, [bio.due, unlocked]);
+
+  // Offer the fingerprint straight away, as other password managers do.
+  useEffect(() => {
+    (async () => {
+      const w = await refreshWait();
+      if (!autoPrompted.current && bio.enabled && !bio.due && w === 0) {
+        autoPrompted.current = true;
+        tryBiometric();
+      }
+    })();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const submit = async () => {
     setBusy(true);
     setMessage(null);
     try {
-      const wait = await remainingWaitMs();
+      const wait = await refreshWait();
       if (wait > 0) {
-        setWaitMs(wait);
         return;
       }
-      const res = await unlockWithPassword(pw);
-      if (res.ok) {
-        await recordSuccess();
-        setPw('');
-        unlocked(res.db);
-        return;
+      if (mode === 'password') {
+        const res = await unlockWithPassword(secret);
+        if (res.ok) {
+          await recordSuccess();
+          setSecret('');
+          unlocked(res.db, res.dek);
+          return;
+        }
+      } else if (mode === 'recovery') {
+        const res = await unlockWithRecoveryKey(secret);
+        if (res.ok) {
+          await recordSuccess();
+          setSecret('');
+          setMode({ newPassword: { db: res.db, dek: res.dek } });
+          return;
+        }
       }
       const f = await recordFailure();
       setWaitMs(f.waitMs);
-      setMessage(`Wrong password (${f.failures} ${f.failures === 1 ? 'attempt' : 'attempts'}).`);
+      const what = mode === 'recovery' ? 'recovery key' : 'password';
+      setMessage(`Wrong ${what} (${f.failures} ${f.failures === 1 ? 'attempt' : 'attempts'}).`);
     } catch (e) {
       setMessage(e instanceof Error ? e.message : 'Could not open the vault.');
     } finally {
@@ -55,8 +113,28 @@ export function UnlockScreen() {
     }
   };
 
+  if (typeof mode === 'object') {
+    const { db, dek } = mode.newPassword;
+    return (
+      <Screen
+        title="Set a new master password"
+        body="You opened Vault with your recovery key. Choose a new master password; your recovery key keeps working. Old backups still open with the old password or the recovery key.">
+        <NewPasswordForm
+          submitTitle="Save and open Vault"
+          busyTitle="Saving…"
+          onSubmit={async pw => {
+            await changePassword(dek, pw);
+            unlocked(db, dek);
+          }}
+        />
+      </Screen>
+    );
+  }
+
   const waiting = waitMs > 0;
   const waitText = waiting ? `Too many attempts · try again in ${formatWait(waitMs)}` : null;
+  const recovery = mode === 'recovery';
+  const showBio = bio.enabled && !bio.due && !recovery;
 
   return (
     <SafeAreaView style={s.root} edges={['bottom']}>
@@ -65,26 +143,50 @@ export function UnlockScreen() {
           <View style={s.hero}>
             <View style={[s.blob, s.blobPink]} />
             <View style={[s.blob, s.blobYellow]} />
-            <View style={s.lockCircle}>
-              <Text style={s.lockGlyph} accessibilityElementsHidden>
-                ⦿
-              </Text>
-            </View>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={showBio ? 'Unlock with fingerprint' : 'Vault is locked'}
+              disabled={!showBio || waiting}
+              onPress={tryBiometric}
+              style={s.lockCircle}>
+              <Text style={s.lockGlyph}>{showBio ? '◉' : '⦿'}</Text>
+            </Pressable>
             <Text style={s.heroTitle}>Welcome back</Text>
-            <Text style={s.heroSub}>Your vault is locked</Text>
+            <Text style={s.heroSub}>
+              {recovery ? 'Unlock with your recovery key' : showBio ? 'Touch the circle to use your fingerprint' : 'Your vault is locked'}
+            </Text>
           </View>
           <View style={s.form}>
+            {bio.enabled && bio.due && !recovery && (
+              <Banner tone="warn" text="Weekly check: enter your master password so you don't forget it. Fingerprint works again after." />
+            )}
             <Field
-              label="Master password"
-              value={pw}
-              onChangeText={setPw}
+              label={recovery ? 'Recovery key' : 'Master password'}
+              value={secret}
+              onChangeText={setSecret}
               {...secretInputProps}
-              onSubmitEditing={onUnlock}
+              secureTextEntry={!recovery}
+              autoCapitalize={recovery ? 'characters' : 'none'}
+              placeholder={recovery ? 'XXXX-XXXX-XXXX-XXXX-XXXX-XXXX' : undefined}
+              onSubmitEditing={submit}
               returnKeyType="go"
               editable={!busy}
             />
-            <Button title="Unlock" variant="dark" onPress={onUnlock} disabled={!pw || waiting} loading={busy} />
+            <Button title="Unlock" variant="dark" onPress={submit} disabled={!secret || waiting} loading={busy} />
             {waitText ? <Banner text={waitText} /> : message ? <Banner text={message} /> : null}
+            {showBio && <Button title="Use fingerprint" variant="soft" onPress={tryBiometric} disabled={waiting} />}
+            {hasRecoveryKey() && (
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => {
+                  setSecret('');
+                  setMessage(null);
+                  setMode(recovery ? 'password' : 'recovery');
+                }}
+                style={s.link}>
+                <Text style={s.linkText}>{recovery ? 'Use master password instead' : 'Forgot password? Use recovery key'}</Text>
+              </Pressable>
+            )}
             <View style={{ flex: 1 }} />
             <Text style={s.footer}>Offline · Encrypted on this phone</Text>
           </View>
@@ -102,7 +204,7 @@ function formatWait(ms: number) {
 const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
   hero: {
-    height: 360,
+    height: 340,
     backgroundColor: colors.primary,
     borderBottomLeftRadius: 36,
     borderBottomRightRadius: 36,
@@ -125,7 +227,9 @@ const s = StyleSheet.create({
   },
   lockGlyph: { fontSize: 44, color: colors.primary },
   heroTitle: { fontFamily: fonts.extrabold, fontSize: 26, color: colors.white },
-  heroSub: { fontFamily: fonts.regular, fontSize: 15, color: '#EDE8FF' },
+  heroSub: { fontFamily: fonts.regular, fontSize: 15, color: '#EDE8FF', textAlign: 'center', paddingHorizontal: 24 },
   form: { flex: 1, padding: 24, gap: 12 },
+  link: { minHeight: 44, justifyContent: 'center', alignItems: 'center' },
+  linkText: { fontFamily: fonts.bold, fontSize: 15, color: colors.primary },
   footer: { textAlign: 'center', fontFamily: fonts.regular, fontSize: 13, color: colors.muted },
 });

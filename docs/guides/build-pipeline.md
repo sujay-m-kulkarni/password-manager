@@ -62,7 +62,7 @@ Settings › Secrets and variables › Actions › New repository secret:
 
 Keep `vault.jks` and its password outside the repository. **If the key is lost, no future build can update the
 installed app**, and since there is no cloud copy you would need an encrypted export to move your passwords
-(export arrives in build step 6). Never commit the file — `*.jks` is in `.gitignore`.
+(Settings › Export backup). Never commit the file — `*.jks` is in `.gitignore`.
 
 Until the secrets exist, a merge to `main` skips the release with a warning instead of failing.
 

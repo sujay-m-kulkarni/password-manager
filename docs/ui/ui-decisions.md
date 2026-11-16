@@ -25,7 +25,9 @@ All colours live in `app/src/theme.ts`.
 4. **Entry detail** — header in the folder colour, show/hide/copy, strength bar, website, notes, edit, favourite, delete. A PIN shows large, spaced digits (482 913) and no strength bar.
 5. **Add/Edit** — a **Login / PIN** choice when adding. Login: form with a Generate button that opens the generator as a bottom sheet. PIN: title, a digits-only field on the number keypad (4–12 digits, with a running count), folder, favourite, notes.
 6. **Generator tab** — same generator, with Copy.
-7. **Settings tab** — auto-lock timeout, clipboard timer, lock now. (Backup, recovery key and password change arrive with steps 6–7.)
+7. **Settings tab** — backup card (last backup, Export), unlock with fingerprint (+ phone screen lock), auto-lock, clipboard timer, change master password, recovery key, export/restore, lock now.
+8. **Setup** is three steps: master password → recovery key (shown once, "I've written it down") → fingerprint. "New phone? Restore from a backup" starts from a backup file instead.
+9. **Unlock** offers the fingerprint straight away (the circle in the hero is the fingerprint button), the master password weekly, and "Forgot password? Use recovery key", followed by setting a new master password.
 
 Bottom tabs: Vault · Generator · Settings.
 

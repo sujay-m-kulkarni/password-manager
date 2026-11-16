@@ -212,6 +212,15 @@ Folder colours: Banking blue `#2563EB`, Work orange `#C2410C`, Email pink `#DB27
 6. **Export/import and backup reminders.**
 7. **Biometrics, recovery key, master password change.**
 
+### 5.1 As built (1.1.0): keys, fingerprint and backups
+
+- **Data key in memory while unlocked** (session store), wiped on lock, so Settings can turn on fingerprint, make a recovery key or export without re-asking for the password.
+- **Recovery key:** 15 random bytes as 24 Crockford base32 characters (`XXXX-XXXX-…`, no I/L/O/U); light Argon2id (8 MiB, 1 pass) since it is already high-entropy. Made at setup and from Settings (after confirming the master password). A new one replaces the old for the vault; backups keep the wrap they were made with.
+- **Fingerprint:** a copy of the data key in react-native-keychain's Keystore-backed AES-GCM storage, access control `BIOMETRY_CURRENT_SET` (or `BIOMETRY_ANY_OR_DEVICE_PASSCODE` when the phone's screen lock is allowed). The master password is asked if it hasn't been typed for 7 days. If Android drops the key (screen lock removed), unlocking falls back to the password and Settings offers to turn it on again.
+- **Backup file (`.vaultbackup`, JSON):** the header's password and recovery wraps of the data key, plus folders and entries as JSON under AES-256-GCM with `HMAC-SHA256(DEK, "vault-backup-data:v1")`. It opens with the master password it was made with or the recovery key. Restore in Settings replaces the entries (the vault keeps its own key); restore at Setup adopts the backup's key, password and recovery key.
+- **Files** go through Android's file picker (Storage Access Framework, `VaultFilesModule.kt`): no storage permission, and auto-lock is paused while the picker is open.
+- **Backup reminder** when there are entries and no backup, or changes since a backup more than 30 days old.
+
 ## 6. Risks and rules
 
 - **No cloud means no recovery.** If the phone is lost or both the master password and recovery key are forgotten, the passwords are gone. Mitigate with regular encrypted exports stored off the phone and a recovery key.
