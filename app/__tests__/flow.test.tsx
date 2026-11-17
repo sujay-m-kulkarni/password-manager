@@ -112,8 +112,10 @@ test('setup creates the vault and opens the Vault screen', async () => {
   });
 });
 
-test('shows the crash report from the last run, once', async () => {
+test('shows the crash report before anything else, until closed', async () => {
+  const dismissCrash = jest.fn();
   NativeModules.CrashReport = {
+    dismissCrash,
     takeLastCrash: jest.fn().mockResolvedValue({
       reason: 'Crash (native code)',
       when: 0,
@@ -128,9 +130,13 @@ test('shows the crash report from the last run, once', async () => {
     await wait(50);
   });
   expect(textOf(r)).toContain('Vault closed unexpectedly last time');
-  expect(textOf(r)).toContain('Vault 1.0.1 closed unexpectedly');
+  expect(textOf(r)).toContain('Vault 1.0.1 — report');
+  // Safe start: nothing of the vault runs while the report is shown.
+  expect(textOf(r)).not.toContain('Welcome back');
   await pressButton(r, 'Close');
+  expect(dismissCrash).toHaveBeenCalled();
   expect(textOf(r)).not.toContain('Vault closed unexpectedly last time');
+  expect(textOf(r)).toContain('Welcome back');
   await act(async () => {
     r.unmount();
     await wait(50);
@@ -222,5 +228,31 @@ test('saving an entry returns to the list, for new and edited entries', async ()
   await act(async () => {
     r.unmount();
     await wait(50);
+  });
+});
+
+test('an error while drawing a screen shows the report instead of closing the app', async () => {
+  const saveReport = jest.fn();
+  NativeModules.CrashReport = { saveReport, dismissCrash: jest.fn(), takeLastCrash: jest.fn().mockResolvedValue(null) };
+  const { ErrorBoundary } = require('../src/components/CrashReportNotice');
+  const Broken = () => {
+    throw new Error('example failure');
+  };
+  const spy = jest.spyOn(console, 'error').mockImplementation(() => {});
+  let r!: ReactTestRenderer.ReactTestRenderer;
+  await act(async () => {
+    r = ReactTestRenderer.create(
+      <ErrorBoundary>
+        <Broken />
+      </ErrorBoundary>,
+    );
+    await wait(20);
+  });
+  spy.mockRestore();
+  expect(textOf(r)).toContain('Something went wrong');
+  expect(textOf(r)).toContain('example failure');
+  expect(saveReport).toHaveBeenCalledWith('App error', expect.stringContaining('example failure'));
+  await act(async () => {
+    r.unmount();
   });
 });

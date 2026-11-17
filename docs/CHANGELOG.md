@@ -4,6 +4,11 @@ What's new in each release, newest first. The GitHub release notes are made from
 merged pull request (`app/scripts/release-notes.mjs`); this file keeps the whole history in one place and is updated
 in every PR.
 
+## 1.3.1
+
+- If Vault closes unexpectedly, the next launch shows the report before anything else, and keeps showing it until you close it, so it can always be shared.
+- An error on a screen now shows the report instead of closing the app.
+
 ## 1.3.0
 
 - New softer, dark look ("Dusk"): charcoal background, lavender buttons, pastel folder colours and rounder shapes.

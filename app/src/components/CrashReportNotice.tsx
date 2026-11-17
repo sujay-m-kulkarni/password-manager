@@ -4,19 +4,42 @@
  * chooses (WhatsApp, email); nothing is sent automatically.
  */
 import React, { useEffect, useState } from 'react';
-import { NativeModules, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
+import { NativeModules, Platform, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, fonts } from '../theme';
 import { Button } from './ui';
 
 export type CrashInfo = { reason: string; when: number; details: string; device: string; appVersion: string };
 
-type CrashReportNative = { takeLastCrash(): Promise<CrashInfo | null> };
+type CrashReportNative = {
+  takeLastCrash(): Promise<CrashInfo | null>;
+  dismissCrash?(): void;
+  saveReport?(reason: string, details: string): void;
+};
+
+const native = () => NativeModules.CrashReport as CrashReportNative | undefined;
+
+/** The report stays until the user closes it, so a crash that repeats can still be shared. */
+export function dismissCrash() {
+  try {
+    native()?.dismissCrash?.();
+  } catch {
+    // nothing to do
+  }
+}
+
+/** Stores an in-app error so it is shown again on the next launch if the app is closed. */
+export function saveReport(reason: string, details: string) {
+  try {
+    native()?.saveReport?.(reason, details);
+  } catch {
+    // nothing to do
+  }
+}
 
 export async function takeLastCrash(): Promise<CrashInfo | null> {
   try {
-    const native = NativeModules.CrashReport as CrashReportNative | undefined;
-    return (await native?.takeLastCrash()) ?? null;
+    return (await native()?.takeLastCrash()) ?? null;
   } catch {
     return null;
   }
@@ -24,7 +47,7 @@ export async function takeLastCrash(): Promise<CrashInfo | null> {
 
 export function formatCrashReport(c: CrashInfo): string {
   return [
-    `Vault ${c.appVersion} closed unexpectedly`,
+    `Vault ${c.appVersion || ''} — report`,
     `When: ${new Date(c.when).toISOString()}`,
     `Reason: ${c.reason}`,
     `Device: ${c.device}`,
@@ -33,22 +56,82 @@ export function formatCrashReport(c: CrashInfo): string {
   ].join('\n');
 }
 
-export function CrashReportNotice() {
-  const [crash, setCrash] = useState<CrashInfo | null>(null);
+/**
+ * Safe start: checks for a crash report BEFORE anything else of the app runs (no vault, no unlock
+ * screen), so a crash that happens on every launch can still be read and shared.
+ */
+export function CrashGate({ children }: { children: React.ReactNode }) {
+  const [state, setState] = useState<'checking' | 'none' | CrashInfo>('checking');
 
   useEffect(() => {
-    takeLastCrash().then(setCrash);
+    takeLastCrash().then(c => setState(c ?? 'none'));
   }, []);
 
-  if (!crash) {
-    return null;
+  if (state === 'checking') {
+    return <View style={s.blank} />;
   }
-  const text = formatCrashReport(crash);
+  if (state !== 'none') {
+    return (
+      <CrashReportView
+        crash={state}
+        title="Vault closed unexpectedly last time"
+        onClose={() => {
+          dismissCrash();
+          setState('none');
+        }}
+      />
+    );
+  }
+  return <>{children}</>;
+}
 
+/** Catches errors while drawing a screen: shows the report instead of the app closing. */
+export class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { crash: CrashInfo | null }> {
+  state = { crash: null as CrashInfo | null };
+
+  static getDerivedStateFromError(e: unknown) {
+    const err = e instanceof Error ? e : new Error(String(e));
+    return {
+      crash: {
+        reason: 'App error',
+        when: Date.now(),
+        details: `${err.name}: ${err.message}\n${err.stack ?? ''}`,
+        device: `Android ${Platform.Version}`,
+        appVersion: '',
+      },
+    };
+  }
+
+  componentDidCatch(e: unknown, info: React.ErrorInfo) {
+    const err = e instanceof Error ? e : new Error(String(e));
+    const details = `${err.name}: ${err.message}\n${err.stack ?? ''}\n\nScreen:${info.componentStack ?? ''}`;
+    this.setState(st => (st.crash ? { crash: { ...st.crash, details } } : st));
+    saveReport('App error', details);
+  }
+
+  render() {
+    if (this.state.crash) {
+      return (
+        <CrashReportView
+          crash={this.state.crash}
+          title="Something went wrong"
+          onClose={() => {
+            dismissCrash();
+            this.setState({ crash: null });
+          }}
+        />
+      );
+    }
+    return this.props.children;
+  }
+}
+
+function CrashReportView({ crash, title, onClose }: { crash: CrashInfo; title: string; onClose: () => void }) {
+  const text = formatCrashReport(crash);
   return (
     <View style={StyleSheet.absoluteFill}>
       <SafeAreaView style={s.root}>
-        <Text style={s.title}>Vault closed unexpectedly last time</Text>
+        <Text style={s.title}>{title}</Text>
         <Text style={s.body}>
           Your vault is safe. Please share this report so the problem can be fixed. It contains no passwords, only
           where in the app's code it stopped.
@@ -64,7 +147,7 @@ export function CrashReportNotice() {
         </ScrollView>
         <View style={s.actions}>
           <Button title="Share report" onPress={() => Share.share({ message: text }).catch(() => {})} />
-          <Button title="Close" variant="ghost" onPress={() => setCrash(null)} />
+          <Button title="Close" variant="ghost" onPress={onClose} />
         </View>
       </SafeAreaView>
     </View>
@@ -72,6 +155,7 @@ export function CrashReportNotice() {
 }
 
 const s = StyleSheet.create({
+  blank: { flex: 1, backgroundColor: colors.bg },
   root: { flex: 1, backgroundColor: colors.bg, padding: 20, gap: 12 },
   title: { fontFamily: fonts.extrabold, fontSize: 24, color: colors.ink },
   body: { fontFamily: fonts.regular, fontSize: 15, lineHeight: 21, color: colors.muted },

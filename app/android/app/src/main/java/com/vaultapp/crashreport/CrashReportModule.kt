@@ -49,7 +49,33 @@ class CrashReportModule(reactContext: ReactApplicationContext) :
     }
   }
 
-  /** Resolves to null, or { reason, when, details } for a crash not reported before. */
+  /** Keeps a JavaScript error report (from the in-app error screen) until it is dismissed. */
+  @ReactMethod
+  fun saveReport(reason: String, details: String) {
+    try {
+      reactApplicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+        .putString(KEY_PENDING_REASON, reason)
+        .putLong(KEY_PENDING_WHEN, System.currentTimeMillis())
+        .putString(KEY_PENDING_DETAILS, details.take(MAX_CHARS))
+        .commit()
+    } catch (_: Exception) {
+    }
+  }
+
+  /** Called when the user closes the report: it won't be shown again. */
+  @ReactMethod
+  fun dismissCrash() {
+    try {
+      reactApplicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+        .remove(KEY_PENDING_REASON).remove(KEY_PENDING_WHEN).remove(KEY_PENDING_DETAILS).commit()
+    } catch (_: Exception) {
+    }
+  }
+
+  /**
+   * Resolves to null, or { reason, when, details } for the last crash. A report stays pending
+   * (shown on every launch) until [dismissCrash], so a crash that repeats can still be shared.
+   */
   @ReactMethod
   fun takeLastCrash(promise: Promise) {
     try {
@@ -91,10 +117,22 @@ class CrashReportModule(reactContext: ReactApplicationContext) :
         }
       }
 
+      if (reason != null) {
+        // A new crash replaces any older pending report.
+        prefs.edit()
+          .putString(KEY_PENDING_REASON, reason)
+          .putLong(KEY_PENDING_WHEN, whenMs)
+          .putString(KEY_PENDING_DETAILS, details.toString().trim().take(MAX_CHARS))
+          .commit()
+      }
+      reason = prefs.getString(KEY_PENDING_REASON, null)
       if (reason == null) {
         promise.resolve(null)
         return
       }
+      whenMs = prefs.getLong(KEY_PENDING_WHEN, 0L)
+      details.setLength(0)
+      details.append(prefs.getString(KEY_PENDING_DETAILS, "") ?: "")
       val map = Arguments.createMap()
       map.putString("reason", reason)
       map.putDouble("when", whenMs.toDouble())
@@ -172,6 +210,9 @@ class CrashReportModule(reactContext: ReactApplicationContext) :
   companion object {
     private const val PREFS = "crash_report"
     private const val KEY_LAST_SEEN = "last_seen_exit"
+    private const val KEY_PENDING_REASON = "pending_reason"
+    private const val KEY_PENDING_WHEN = "pending_when"
+    private const val KEY_PENDING_DETAILS = "pending_details"
     private const val CRASH_FILE = "last-crash.txt"
     private const val MAX_CHARS = 12000
 
