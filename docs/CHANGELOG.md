@@ -8,6 +8,7 @@ in every PR.
 
 - If Vault closes unexpectedly, the next launch shows the report before anything else, and keeps showing it until you close it, so it can always be shared.
 - An error on a screen now shows the report instead of closing the app.
+- Crash reports now list the app's last steps (starting, unlocking, opening the vault, showing the list), to show where it stopped. They contain step names only, never vault contents.
 
 ## 1.3.0
 

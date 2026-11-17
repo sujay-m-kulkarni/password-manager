@@ -8,6 +8,7 @@ import { NativeModules, Platform, ScrollView, Share, StyleSheet, Text, View } fr
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, fonts } from '../theme';
 import { Button } from './ui';
+import { recordedSteps, step } from '../utils/steps';
 
 export type CrashInfo = { reason: string; when: number; details: string; device: string; appVersion: string };
 
@@ -64,7 +65,10 @@ export function CrashGate({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<'checking' | 'none' | CrashInfo>('checking');
 
   useEffect(() => {
-    takeLastCrash().then(c => setState(c ?? 'none'));
+    takeLastCrash().then(c => {
+      step(c ? 'showing crash report' : 'no crash report');
+      setState(c ?? 'none');
+    });
   }, []);
 
   if (state === 'checking') {
@@ -104,7 +108,10 @@ export class ErrorBoundary extends React.Component<{ children: React.ReactNode }
 
   componentDidCatch(e: unknown, info: React.ErrorInfo) {
     const err = e instanceof Error ? e : new Error(String(e));
-    const details = `${err.name}: ${err.message}\n${err.stack ?? ''}\n\nScreen:${info.componentStack ?? ''}`;
+    const steps = recordedSteps();
+    const details = `${err.name}: ${err.message}\n${err.stack ?? ''}\n\nScreen:${info.componentStack ?? ''}${
+      steps ? `\n\nLast steps:\n${steps}` : ''
+    }`;
     this.setState(st => (st.crash ? { crash: { ...st.crash, details } } : st));
     saveReport('App error', details);
   }

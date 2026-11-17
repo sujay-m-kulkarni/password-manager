@@ -11,6 +11,7 @@
 import * as Keychain from 'react-native-keychain';
 import { Buffer } from './crypto';
 import { LAST_PASSWORD_UNLOCK, getMeta, setMeta } from './keyHierarchy';
+import { step } from '../utils/steps';
 
 const SERVICE = 'vault.dek.biometric';
 const ENABLED = 'biometric_enabled';
@@ -71,6 +72,7 @@ export type BiometricUnlock =
 
 /** Asks for fingerprint / phone lock and returns the data key. */
 export async function getDek(): Promise<BiometricUnlock> {
+  step('fingerprint: asking');
   try {
     const cred = await Keychain.getGenericPassword({
       service: SERVICE,

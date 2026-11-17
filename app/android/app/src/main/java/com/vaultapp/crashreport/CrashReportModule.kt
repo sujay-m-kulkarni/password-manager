@@ -49,6 +49,25 @@ class CrashReportModule(reactContext: ReactApplicationContext) :
     }
   }
 
+  /**
+   * Records what the app is doing ("unlock: opening vault"), kept as the last few steps, so a
+   * crash report says where it happened even when there is no readable trace. Synchronous, so
+   * the step is saved before the next line runs. Step names only: never vault contents.
+   */
+  @ReactMethod(isBlockingSynchronousMethod = true)
+  fun mark(step: String): Boolean {
+    return try {
+      val prefs = reactApplicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+      val time = java.text.SimpleDateFormat("HH:mm:ss.SSS", java.util.Locale.US).format(java.util.Date())
+      val lines = (prefs.getString(KEY_STEPS, "") ?: "").split("\n").filter { it.isNotEmpty() }
+      val kept = (lines + "$time ${step.take(120)}").takeLast(MAX_STEPS)
+      prefs.edit().putString(KEY_STEPS, kept.joinToString("\n")).commit()
+      true
+    } catch (_: Exception) {
+      false
+    }
+  }
+
   /** Keeps a JavaScript error report (from the in-app error screen) until it is dismissed. */
   @ReactMethod
   fun saveReport(reason: String, details: String) {
@@ -61,6 +80,15 @@ class CrashReportModule(reactContext: ReactApplicationContext) :
     } catch (_: Exception) {
     }
   }
+
+  /** The recorded steps, for reports made in JavaScript. */
+  @ReactMethod(isBlockingSynchronousMethod = true)
+  fun steps(): String =
+    try {
+      reactApplicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY_STEPS, "") ?: ""
+    } catch (_: Exception) {
+      ""
+    }
 
   /** Called when the user closes the report: it won't be shown again. */
   @ReactMethod
@@ -118,6 +146,10 @@ class CrashReportModule(reactContext: ReactApplicationContext) :
       }
 
       if (reason != null) {
+        val steps = prefs.getString(KEY_STEPS, "") ?: ""
+        if (steps.isNotEmpty()) {
+          details.append("\n\nLast steps before it closed:\n").append(steps)
+        }
         // A new crash replaces any older pending report.
         prefs.edit()
           .putString(KEY_PENDING_REASON, reason)
@@ -211,6 +243,8 @@ class CrashReportModule(reactContext: ReactApplicationContext) :
     private const val PREFS = "crash_report"
     private const val KEY_LAST_SEEN = "last_seen_exit"
     private const val KEY_PENDING_REASON = "pending_reason"
+    private const val KEY_STEPS = "steps"
+    private const val MAX_STEPS = 15
     private const val KEY_PENDING_WHEN = "pending_when"
     private const val KEY_PENDING_DETAILS = "pending_details"
     private const val CRASH_FILE = "last-crash.txt"

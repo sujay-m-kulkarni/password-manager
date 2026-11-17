@@ -5,6 +5,7 @@ import { getSetting, setSetting } from '../db/database';
 import { clearClipboardNow } from '../security/clipboard';
 import { wipe, type Buffer } from '../security/crypto';
 import { vaultExists } from '../security/keyHierarchy';
+import { step } from '../utils/steps';
 
 export type Status = 'loading' | 'setup' | 'locked' | 'unlocked';
 
@@ -41,7 +42,10 @@ export const useSession = create<Session>((set, get) => ({
   dataVersion: 0,
 
   init: () => {
-    set({ status: vaultExists() ? 'locked' : 'setup' });
+    step('start: checking for a vault');
+    const exists = vaultExists();
+    step(exists ? 'start: vault found' : 'start: no vault (setup)');
+    set({ status: exists ? 'locked' : 'setup' });
   },
 
   unlocked: (db: DB, dek: Buffer) => {
@@ -49,6 +53,7 @@ export const useSession = create<Session>((set, get) => ({
       autoLockSec: Number(getSetting(db, 'auto_lock_sec') ?? DEFAULTS.autoLockSec),
       clipboardSec: Number(getSetting(db, 'clipboard_sec') ?? DEFAULTS.clipboardSec),
     };
+    step('unlocked: opening the vault list');
     set({ db, dek, settings, status: 'unlocked' });
   },
 
