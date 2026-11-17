@@ -38,7 +38,6 @@ export const HELP: Section[] = [
       'Tap + on the Vault tab. One entry can hold a login, PINs and (for Banking) cards: the tabs Login · PINs · Cards show one part at a time, with a tick or count for what is filled in.',
       'On the PINs tab add as many PINs as the account has (UPI PIN, ATM PIN, MPIN…). An entry with only a PIN, like a phone lock, needs no password.',
       'A PIN can be Numbers (4–12 digits, typed on the number pad) or Letters & numbers (4–16, for app passcodes). Letters keep their capitals.',
-      'For a new password, tap Generate for a strong random one. The Generator tab makes one without saving it.',
       'Give each entry a type: Banking, Investments, Social media, Email or Other. The chips above the list show one type at a time; star the entries you use most and they appear at the top.',
       'Banking entries also hold the account number, IFSC and customer ID, and the account’s debit and credit cards (number, expiry, name on card and card PIN). The CVV is never stored.',
       'Investments entries (Zerodha, Groww…) hold the client ID and demat ID.',

@@ -3,7 +3,6 @@ import type { EntryType } from '../entryTypes';
 
 export type TabParamList = {
   Vault: undefined;
-  Generator: undefined;
   Settings: undefined;
 };
 
