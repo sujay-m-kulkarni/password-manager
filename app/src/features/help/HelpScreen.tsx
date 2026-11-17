@@ -9,6 +9,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button } from '../../components/ui';
 import type { RootStackParamList } from '../../navigation/types';
 import { colors, fonts } from '../../theme';
+import { Icon } from '../../components/Icon';
 
 type Section = { title: string; points: string[] };
 
@@ -37,6 +38,8 @@ export const HELP: Section[] = [
       'Tap + on the Vault tab. Choose Login for a username and password, or PIN for a phone, SIM, ATM or UPI PIN.',
       'For a new password, tap Generate for a strong random one. The Generator tab makes one without saving it.',
       'Put entries in folders (Banking, Work, Email, Social) and star the ones you use most: they appear at the top.',
+      'Add, rename, recolour or delete folders in Settings › Folders. Deleting a folder keeps its entries.',
+      'Saved something as a Login that should be a PIN (or the other way)? Open it, tap Edit and switch the type.',
       'The PINs chip lists all your PINs; search finds entries by name, username or website.',
     ],
   },
@@ -95,7 +98,7 @@ export function HelpScreen({ navigation }: NativeStackScreenProps<RootStackParam
                 onPress={() => setOpen(expanded ? null : i)}
                 style={s.head}>
                 <Text style={s.cardTitle}>{sec.title}</Text>
-                <Text style={s.chevron}>{expanded ? '−' : '+'}</Text>
+                <Icon name={expanded ? 'minus' : 'plus'} size={20} color={colors.primary} strokeWidth={2.5} />
               </Pressable>
               {expanded && (
                 <View style={s.points}>
@@ -123,7 +126,6 @@ const s = StyleSheet.create({
   card: { backgroundColor: colors.surface, borderRadius: 18, overflow: 'hidden' },
   head: { flexDirection: 'row', alignItems: 'center', minHeight: 56, paddingHorizontal: 16, gap: 8 },
   cardTitle: { flex: 1, fontFamily: fonts.bold, fontSize: 16, color: colors.ink },
-  chevron: { fontFamily: fonts.bold, fontSize: 22, color: colors.primary },
   points: { paddingHorizontal: 16, paddingBottom: 16, gap: 10 },
   point: { flexDirection: 'row', gap: 10 },
   dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.primary, marginTop: 8 },

@@ -17,7 +17,7 @@ export type KdfParams = {
 
 export type Wrapped = { iv: string; ct: string; tag: string }; // base64 fields
 
-// Tune on your slowest target phone: aim for 0.5–1 s per derivation.
+// Starting point; calibratedKdfParams() tunes the passes to the phone it runs on.
 export const DEFAULT_KDF: Omit<KdfParams, 'salt'> = {
   alg: 'argon2id',
   memKiB: 64 * 1024,
@@ -29,6 +29,29 @@ export const randomBytes = (n: number): Buffer => QuickCrypto.randomBytes(n);
 
 export function newKdfParams(): KdfParams {
   return { ...DEFAULT_KDF, salt: randomBytes(16).toString('base64') };
+}
+
+/** Unlock target: long enough to slow guessing, short enough not to annoy. */
+export const KDF_TARGET_MS = 700;
+export const KDF_MIN_PASSES = 1; // 64 MiB × 1 pass is still above the OWASP minimum for Argon2id
+export const KDF_MAX_PASSES = 8;
+
+/** Passes for 64 MiB that make one derivation take about KDF_TARGET_MS, given one pass took `onePassMs`. */
+export function passesFor(onePassMs: number): number {
+  const p = Math.round(KDF_TARGET_MS / Math.max(onePassMs, 1));
+  return Math.min(KDF_MAX_PASSES, Math.max(KDF_MIN_PASSES, p));
+}
+
+/**
+ * KDF params tuned to this phone: times one 64 MiB pass and scales the passes so unlocking
+ * takes about 0.7 s (a fast phone gets more passes, so guessing costs an attacker more).
+ */
+export async function calibratedKdfParams(): Promise<KdfParams> {
+  const probe: KdfParams = { ...DEFAULT_KDF, passes: 1, salt: randomBytes(16).toString('base64') };
+  const t0 = Date.now();
+  const k = await deriveKek('calibration', probe);
+  wipe(k);
+  return { ...DEFAULT_KDF, passes: passesFor(Date.now() - t0), salt: randomBytes(16).toString('base64') };
 }
 
 /** Derives a 32-byte key-encryption key from a secret (master password or recovery key). */

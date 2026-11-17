@@ -32,6 +32,23 @@ class CrashReportModule(reactContext: ReactApplicationContext) :
 
   override fun getName(): String = "CrashReport"
 
+  /** { name: "1.2.0", code: 1000021 } of the installed app, for the Settings footer. */
+  @ReactMethod
+  fun getAppVersion(promise: Promise) {
+    try {
+      val ctx = reactApplicationContext
+      val info = ctx.packageManager.getPackageInfo(ctx.packageName, 0)
+      val map = Arguments.createMap()
+      map.putString("name", info.versionName ?: "?")
+      @Suppress("DEPRECATION")
+      val code = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) info.longVersionCode else info.versionCode.toLong()
+      map.putDouble("code", code.toDouble())
+      promise.resolve(map)
+    } catch (e: Exception) {
+      promise.resolve(null)
+    }
+  }
+
   /** Resolves to null, or { reason, when, details } for a crash not reported before. */
   @ReactMethod
   fun takeLastCrash(promise: Promise) {

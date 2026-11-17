@@ -19,6 +19,7 @@ import { recordFailure, recordSuccess, remainingWaitMs } from '../../security/lo
 import type { RootStackParamList } from '../../navigation/types';
 import { useSession } from '../../store/session';
 import { colors, fonts } from '../../theme';
+import { Icon } from '../../components/Icon';
 
 type Mode = 'password' | 'recovery' | { newPassword: { db: DB; dek: Buffer } };
 
@@ -153,7 +154,7 @@ export function UnlockScreen() {
               disabled={!showBio || waiting}
               onPress={tryBiometric}
               style={s.lockCircle}>
-              <Text style={s.lockGlyph}>{showBio ? '◉' : '⦿'}</Text>
+              <Icon name={showBio ? 'fingerprint' : 'lock'} size={44} color={colors.primary} />
             </Pressable>
             <Text style={s.heroTitle}>Welcome back</Text>
             <Text style={s.heroSub}>
@@ -232,7 +233,6 @@ const s = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: 8,
   },
-  lockGlyph: { fontSize: 44, color: colors.primary },
   heroTitle: { fontFamily: fonts.extrabold, fontSize: 26, color: colors.white },
   heroSub: { fontFamily: fonts.regular, fontSize: 15, color: '#EDE8FF', textAlign: 'center', paddingHorizontal: 24 },
   form: { flex: 1, padding: 24, gap: 12 },

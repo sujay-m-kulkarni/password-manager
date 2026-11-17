@@ -37,6 +37,9 @@ export const folderPalette: Record<string, { solid: string; soft: string; ink: s
   amber: { solid: '#B45309', soft: '#FFF4D6', ink: '#92400E' },
 };
 
+/** Colours offered for folders, in display order. */
+export const FOLDER_COLORS = ['blue', 'orange', 'pink', 'green', 'sky', 'violet'] as const;
+
 export const folderColor = (key: string | null | undefined) =>
   folderPalette[key ?? ''] ?? folderPalette.violet;
 

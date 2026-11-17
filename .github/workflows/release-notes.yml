@@ -1,0 +1,39 @@
+# Rewrites the notes of existing releases from docs/CHANGELOG.md ("What's new" + install advice).
+# Run by hand from the Actions tab (Update release notes › Run workflow) after editing the changelog.
+# New releases get their notes automatically from the merged PR (android.yml); this is for fixing older ones.
+name: Update release notes
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  notes:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Rewrite notes for every release listed in the changelog
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release list --limit 100 --json tagName --jq '.[].tagName' | while read -r tag; do
+            version="${tag#v}"
+            old=$(gh release view "$tag" --json body --jq .body)
+            build=$(grep -oE 'build [0-9]+' <<< "$old" | head -1 | cut -d' ' -f2)
+            sha=$(grep -oE 'commit [0-9a-f]{7,}' <<< "$old" | head -1 | cut -d' ' -f2)
+            [ -n "$sha" ] || sha=$(git rev-list -n1 "$tag" 2>/dev/null || true)
+            if node app/scripts/release-notes.mjs --version "$version" --changelog docs/CHANGELOG.md \
+                 --build "${build:-?}" --sha "${sha:-}" > notes.md; then
+              gh release edit "$tag" --notes-file notes.md
+              echo "Updated $tag"
+            else
+              echo "No changelog entry for $tag; left as it is"
+            fi
+          done

@@ -15,7 +15,7 @@ import { deleteVaultFile, openMeta, openVault } from '../db/database';
 import {
   Buffer,
   deriveKek,
-  newKdfParams,
+  calibratedKdfParams,
   randomBytes,
   unwrap,
   wipe,
@@ -87,6 +87,30 @@ export function hasRecoveryKey(): boolean {
 /** When the master password was last typed to unlock (ms), for the weekly password check. */
 export const LAST_PASSWORD_UNLOCK = 'last_password_unlock';
 
+/** How long the last master-password derivation took on this phone (ms), shown in Settings. */
+export const UNLOCK_MS = 'unlock_ms';
+
+async function timedDerive(password: string, kdf: KdfParams): Promise<Buffer> {
+  const t0 = Date.now();
+  const kek = await deriveKek(password, kdf);
+  try {
+    setMeta(UNLOCK_MS, String(Date.now() - t0));
+  } catch {
+    // timing is informational only
+  }
+  return kek;
+}
+
+/** { ms, passes, memMiB } of the master-password key derivation, or null before setup. */
+export function unlockCost(): { ms: number | null; passes: number; memMiB: number } | null {
+  const header = readHeader();
+  if (!header) {
+    return null;
+  }
+  const ms = Number(getMeta(UNLOCK_MS));
+  return { ms: Number.isFinite(ms) && ms > 0 ? ms : null, passes: header.kdf.passes, memMiB: Math.round(header.kdf.memKiB / 1024) };
+}
+
 export function notePasswordUnlock(now = Date.now()) {
   setMeta(LAST_PASSWORD_UNLOCK, String(now));
 }
@@ -138,8 +162,8 @@ export async function createVault(masterPassword: string): Promise<Opened> {
   deleteVaultFile(); // clean up after any interrupted earlier setup
 
   const dek = randomBytes(32);
-  const kdf = newKdfParams();
-  const kek = await deriveKek(masterPassword, kdf);
+  const kdf = await calibratedKdfParams();
+  const kek = await timedDerive(masterPassword, kdf);
   try {
     const header: Header = { v: 1, kdf, pw: wrap(kek, dek, AAD_PW) };
     const db = openVault(dek); // creates the encrypted file and runs migrations
@@ -209,7 +233,7 @@ export function unlockWithDek(dek: Buffer): DB {
 }
 
 export async function unwrapWithPassword(header: Pick<Header, 'kdf' | 'pw'>, password: string): Promise<Buffer | null> {
-  const kek = await deriveKek(password, header.kdf);
+  const kek = await timedDerive(password, header.kdf);
   try {
     return unwrap(kek, header.pw, AAD_PW); // null = wrong password (GCM tag mismatch)
   } finally {
@@ -250,8 +274,8 @@ export async function changePassword(dek: Buffer, newPassword: string): Promise<
   if (!header) {
     throw new Error('No vault found.');
   }
-  const kdf = newKdfParams();
-  const kek = await deriveKek(newPassword, kdf);
+  const kdf = await calibratedKdfParams();
+  const kek = await timedDerive(newPassword, kdf);
   try {
     writeHeader({ ...header, kdf, pw: wrap(kek, dek, AAD_PW) });
     notePasswordUnlock();

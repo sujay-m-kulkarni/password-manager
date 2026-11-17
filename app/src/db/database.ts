@@ -133,7 +133,61 @@ const rows = <T,>(db: DB, sql: string, params: Scalar[] = []) =>
   db.executeSync(sql, params).rows as unknown as T[];
 
 export function listFolders(db: DB): Folder[] {
-  return rows<Folder>(db, 'SELECT id, name, color FROM folders ORDER BY name');
+  return rows<Folder>(db, 'SELECT id, name, color FROM folders ORDER BY name COLLATE NOCASE');
+}
+
+export type FolderWithCount = Folder & { entries: number };
+
+export function listFoldersWithCounts(db: DB): FolderWithCount[] {
+  return rows<FolderWithCount>(
+    db,
+    `SELECT f.id, f.name, f.color, count(e.id) AS entries
+     FROM folders f LEFT JOIN entries e ON e.folder_id = f.id
+     GROUP BY f.id ORDER BY f.name COLLATE NOCASE`,
+  );
+}
+
+export const FOLDER_NAME_MAX = 30;
+
+/** Throws a readable message if the name is empty, too long, or already used by another folder. */
+function checkFolderName(db: DB, name: string, exceptId?: number): string {
+  const n = name.trim();
+  if (!n) {
+    throw new Error('Give the folder a name.');
+  }
+  if (n.length > FOLDER_NAME_MAX) {
+    throw new Error(`Keep the name to ${FOLDER_NAME_MAX} characters.`);
+  }
+  const clash = rows<{ id: number }>(db, 'SELECT id FROM folders WHERE name = ? COLLATE NOCASE', [n]).find(
+    r => r.id !== exceptId,
+  );
+  if (clash) {
+    throw new Error(`There is already a folder called "${n}".`);
+  }
+  return n;
+}
+
+export function addFolder(db: DB, name: string, color: string): number {
+  const n = checkFolderName(db, name);
+  return Number(db.executeSync('INSERT INTO folders (name, color) VALUES (?, ?)', [n, color]).insertId);
+}
+
+export function updateFolder(db: DB, id: number, name: string, color: string) {
+  const n = checkFolderName(db, name, id);
+  db.executeSync('UPDATE folders SET name = ?, color = ? WHERE id = ?', [n, color, id]);
+}
+
+/** Deletes the folder; its entries are kept, without a folder. */
+export function deleteFolder(db: DB, id: number) {
+  db.executeSync('BEGIN');
+  try {
+    db.executeSync('UPDATE entries SET folder_id = NULL WHERE folder_id = ?', [id]);
+    db.executeSync('DELETE FROM folders WHERE id = ?', [id]);
+    db.executeSync('COMMIT');
+  } catch (e) {
+    db.executeSync('ROLLBACK');
+    throw e;
+  }
 }
 
 export function listEntries(db: DB, search: string, folderId: number | null, kind: EntryKind | null = null): EntryListItem[] {
