@@ -8,6 +8,7 @@ in every PR.
 
 - New softer, dark look ("Dusk"): charcoal background, lavender buttons, pastel folder colours and rounder shapes.
 - No white flash when the app opens.
+- A PIN can now be Numbers (4–12 digits, number pad) or Letters & numbers (4–16, for app passcodes).
 
 ## 1.2.0
 

@@ -233,7 +233,7 @@ export function saveEntry(db: DB, input: EntryInput, id?: number): number {
   const now = Date.now();
   const pin = input.kind === 'pin';
   if (pin && !isValidPin(input.password)) {
-    throw new Error('A PIN is 4 to 12 digits.');
+    throw new Error('A PIN is 4 to 12 digits, or 4 to 16 letters and digits.');
   }
   const common: Scalar[] = [
     input.kind,
@@ -283,12 +283,34 @@ export function setSetting(db: DB, key: string, value: string) {
 
 // ---------- PINs ----------
 
-/** Phone lock, SIM, ATM/card and UPI PINs: digits only, 4 to 12 long (an 8-digit SIM PUK fits). */
+/**
+ * Two kinds of PIN:
+ *  - numbers: phone lock, SIM, ATM/card and UPI PINs, 4 to 12 digits (an 8-digit SIM PUK fits);
+ *  - letters & numbers: app passcodes and the like, 4 to 16 letters or digits (case kept).
+ * Which one a PIN is follows from what it holds, so nothing extra is stored.
+ */
+export type PinFormat = 'numeric' | 'alphanumeric';
 export const PIN_MIN = 4;
 export const PIN_MAX = 12;
+export const PIN_ALNUM_MAX = 16;
 
-export function isValidPin(pin: string): boolean {
-  return new RegExp(`^[0-9]{${PIN_MIN},${PIN_MAX}}$`).test(pin);
+export const pinMax = (format: PinFormat) => (format === 'numeric' ? PIN_MAX : PIN_ALNUM_MAX);
+
+/** Keeps only the characters a PIN of this format may hold, cut to its maximum length. */
+export function cleanPin(text: string, format: PinFormat): string {
+  return text.replace(format === 'numeric' ? /[^0-9]/g : /[^0-9A-Za-z]/g, '').slice(0, pinMax(format));
+}
+
+/** 'numeric' for digits only (or empty), else 'alphanumeric'. */
+export function pinFormatOf(pin: string): PinFormat {
+  return /^[0-9]*$/.test(pin) ? 'numeric' : 'alphanumeric';
+}
+
+/** With no format: valid as either kind. */
+export function isValidPin(pin: string, format?: PinFormat): boolean {
+  const numeric = new RegExp(`^[0-9]{${PIN_MIN},${PIN_MAX}}$`).test(pin);
+  const alnum = new RegExp(`^[0-9A-Za-z]{${PIN_MIN},${PIN_ALNUM_MAX}}$`).test(pin);
+  return format === 'numeric' ? numeric : format === 'alphanumeric' ? alnum : numeric || alnum;
 }
 
 /** "482913" → "482 913", "1234" → "1234", "12345678" → "1234 5678": easier to read off the screen. */

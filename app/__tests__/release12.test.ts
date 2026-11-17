@@ -86,7 +86,7 @@ describe('changing an entry between Login and PIN', () => {
     expect(getEntry(db, id)).toMatchObject({ kind: 'login', username: 'me', password: 'N3w!pass' });
   });
 
-  it('will not save a non-numeric secret as a PIN', async () => {
+  it('will not save a secret with symbols as a PIN', async () => {
     const { db } = await createVault(PW);
     const id = add(db, 'Bank app', null);
     expect(() =>
