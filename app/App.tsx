@@ -16,6 +16,7 @@ import { EditEntryScreen } from './src/features/vault/EditEntryScreen';
 import { EntryDetailScreen } from './src/features/vault/EntryDetailScreen';
 import { VaultScreen } from './src/features/vault/VaultScreen';
 import type { RootStackParamList, TabParamList } from './src/navigation/types';
+import { AutoBackup } from './src/security/AutoBackup';
 import { AutoLock } from './src/security/AutoLock';
 import { useSession } from './src/store/session';
 import { colors, fonts } from './src/theme';
@@ -80,6 +81,7 @@ function VaultApp() {
   return (
     <SafeAreaProvider>
       <StatusBar barStyle="light-content" />
+      {status === 'unlocked' && <AutoBackup />}
       <AutoLock>
         <NavigationContainer theme={navTheme}>
           <Stack.Navigator screenOptions={{ headerShown: false, animation: 'slide_from_right' }}>

@@ -4,6 +4,11 @@ What's new in each release, newest first. The GitHub release notes are made from
 merged pull request (`app/scripts/release-notes.mjs`); this file keeps the whole history in one place and is updated
 in every PR.
 
+## 1.4.0
+
+- Automatic backup: choose a folder once in Settings › Backup, and Vault saves an encrypted backup there whenever your entries change (newest 5 kept). The files stay even if Vault is uninstalled.
+- Uninstalling now offers “Keep app data”: tick it and reinstalling Vault opens the same vault.
+
 ## 1.3.2
 
 - Fixed: Vault could close by itself a moment after opening (often during the fingerprint prompt), most often after updating from an older version.
