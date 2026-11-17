@@ -7,7 +7,7 @@ import { ClipboardToast } from '../../components/ClipboardToast';
 import { SectionLabel } from '../../components/ui';
 import {
   countEntries,
-  getPassword,
+  getQuickSecret,
   listEntries,
   type EntryListItem,
 } from '../../db/database';
@@ -35,7 +35,7 @@ export function VaultScreen() {
 
   const total = useMemo(() => countEntries(db), [db, dataVersion]); // eslint-disable-line react-hooks/exhaustive-deps
   const items = useMemo(
-    () => listEntries(db, search, null, pinsOnly ? 'pin' : null, type),
+    () => listEntries(db, search, null, pinsOnly, type),
     [db, search, type, pinsOnly, dataVersion], // eslint-disable-line react-hooks/exhaustive-deps
   );
   const browsing = !search.trim() && type == null && !pinsOnly;
@@ -47,9 +47,9 @@ export function VaultScreen() {
   const { exportNow, busy: exporting } = useExportBackup();
 
   const copy = (id: number) => {
-    const pw = getPassword(db, id);
-    if (pw != null) {
-      copyWithAutoClear(pw, clipboardSec);
+    const secret = getQuickSecret(db, id);
+    if (secret) {
+      copyWithAutoClear(secret.value, clipboardSec);
     }
   };
 
@@ -180,7 +180,7 @@ export function VaultScreen() {
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="Add password"
-        onPress={() => navigation.navigate('Edit', { type: type ?? undefined, kind: pinsOnly ? 'pin' : 'login' })}
+        onPress={() => navigation.navigate('Edit', { type: type ?? undefined, tab: pinsOnly ? 'pins' : undefined })}
         style={s.fab}>
         <Icon name="plus" size={28} color={colors.onPrimary} strokeWidth={2.5} />
       </Pressable>
@@ -192,8 +192,12 @@ function Row({ item, onOpen, onCopy }: { item: EntryListItem; onOpen: () => void
   const t = typeInfo(item.type);
   const c = folderColor(t.color);
   const cards = Number(item.cards) || 0;
+  const pins = Number(item.pins) || 0;
+  const hasPassword = !!Number(item.has_password);
+  const pinOnly = !hasPassword && pins > 0;
   const sub = [
-    item.kind !== 'pin' ? item.username : null,
+    item.username,
+    pins && !pinOnly ? `${pins} ${pins === 1 ? 'PIN' : 'PINs'}` : null,
     cards ? `${cards} ${cards === 1 ? 'card' : 'cards'}` : null,
   ]
     .filter(Boolean)
@@ -209,7 +213,7 @@ function Row({ item, onOpen, onCopy }: { item: EntryListItem; onOpen: () => void
             <Text style={[s.rowTitle, s.titleText]} numberOfLines={1}>
               {item.title}
             </Text>
-            {item.kind === 'pin' && (
+            {pinOnly && (
               <View style={s.pinTag}>
                 <Text style={s.pinTagText}>PIN</Text>
               </View>
@@ -222,9 +226,15 @@ function Row({ item, onOpen, onCopy }: { item: EntryListItem; onOpen: () => void
           )}
         </View>
       </Pressable>
-      <Pressable accessibilityRole="button" accessibilityLabel={`Copy ${item.kind === 'pin' ? 'PIN' : 'password'} for ${item.title}`} onPress={onCopy} style={s.copyBtn}>
-        <Text style={s.copyText}>Copy</Text>
-      </Pressable>
+      {(hasPassword || pins > 0) && (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`Copy ${hasPassword ? 'password' : 'PIN'} for ${item.title}`}
+          onPress={onCopy}
+          style={s.copyBtn}>
+          <Text style={s.copyText}>Copy</Text>
+        </Pressable>
+      )}
     </View>
   );
 }

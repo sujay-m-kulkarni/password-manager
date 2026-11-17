@@ -1,7 +1,7 @@
 /**
  * The entry form: used for a new entry (Edit route) and, in place, when Edit is tapped on an
- * entry's page. Login or PIN; a type (Banking, Investments, …) with its own fields; and for
- * Banking, the account's debit and credit cards.
+ * entry's page. One entry holds any of: a login (with the type's own fields), named PINs, and —
+ * for Banking — the account's debit and credit cards. Tabs show one part at a time (design H4).
  */
 import React, { useEffect, useState } from 'react';
 import { BackHandler, KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -19,14 +19,16 @@ import {
   type CardKind,
 } from '../../cards';
 import {
+  PIN_LABELS,
   PIN_MIN,
   cleanPin,
   isValidPin,
   pinFormatOf,
   pinMax,
+  pinProblem,
   saveEntry,
   type Entry,
-  type EntryKind,
+  type EntryPin,
   type PinFormat,
 } from '../../db/database';
 import { ENTRY_TYPES, parseFields, typeInfo, type EntryType, type TypeFields } from '../../entryTypes';
@@ -35,24 +37,37 @@ import { colors, folderColor, fonts } from '../../theme';
 import { estimateStrength } from '../../utils/strength';
 import { GeneratorPanel } from '../generator/GeneratorPanel';
 
+export type FormTab = 'login' | 'pins' | 'cards';
+
 type Props = {
   existing: Entry | null;
   existingCards?: Card[];
-  initialKind?: EntryKind;
+  existingPins?: EntryPin[];
+  /** 'pins' opens a new entry on the PINs tab with one empty PIN (from the PINs filter). */
+  initialTab?: FormTab;
   initialType?: EntryType;
   onSaved: (id: number) => void;
   onCancel: () => void;
 };
 
-export function EntryForm({ existing, existingCards = [], initialKind, initialType, onSaved, onCancel }: Props) {
+export function EntryForm({
+  existing,
+  existingCards = [],
+  existingPins = [],
+  initialTab,
+  initialType,
+  onSaved,
+  onCancel,
+}: Props) {
   const db = useDb();
-  const [kind, setKind] = useState<EntryKind>(existing?.kind ?? initialKind ?? 'login');
-  const pin = kind === 'pin';
   const [type, setType] = useState<EntryType>(existing?.type ?? initialType ?? 'other');
   const [fields, setFields] = useState<TypeFields>(() => (existing ? parseFields(existing.type, existing.fields) : {}));
   const [cards, setCards] = useState<Card[]>(existingCards);
-  const [pinFormat, setPinFormat] = useState<PinFormat>(
-    existing?.kind === 'pin' ? pinFormatOf(existing.password) : 'numeric',
+  const [pins, setPins] = useState<EntryPin[]>(() =>
+    existingPins.length || initialTab !== 'pins' ? existingPins : [{ label: '', value: '' }],
+  );
+  const [tab, setTab] = useState<FormTab>(() =>
+    initialTab ?? (existing && !existing.password ? (existingPins.length ? 'pins' : existingCards.length ? 'cards' : 'login') : 'login'),
   );
   const [title, setTitle] = useState(existing?.title ?? '');
   const [username, setUsername] = useState(existing?.username ?? '');
@@ -78,48 +93,23 @@ export function EntryForm({ existing, existingCards = [], initialKind, initialTy
   }, [genOpen, onCancel]);
 
   const info = typeInfo(type);
-  const showCards = info.cards && !pin;
+  const showCards = info.cards;
+  const usedPins = pins.filter(p => p.value.length > 0 || p.label.trim().length > 0);
   const cardsOk = !showCards || cards.every(c => cardProblem(c) == null);
-  const pinInvalid = pin && password.length > 0 && !isValidPin(password, pinFormat);
-  const canSave = title.trim().length > 0 && password.length > 0 && (!pin || isValidPin(password, pinFormat)) && cardsOk;
+  const pinsOk = usedPins.every(p => pinProblem(p) == null);
+  const hasSecret = password.length > 0 || usedPins.length > 0 || (showCards && cards.length > 0);
+  const canSave = title.trim().length > 0 && hasSecret && cardsOk && pinsOk;
   const strength = estimateStrength(password);
-
-  const switchPinFormat = (next: PinFormat) => {
-    setPinFormat(next);
-    setPassword(p => cleanPin(p, next)); // letters are dropped when going to numbers only
-    setError(null);
-  };
-
-  const switchKind = (next: EntryKind) => {
-    if (next === kind) {
-      return;
-    }
-    setKind(next);
-    // Keep the secret if it still fits; switching back to the saved type restores what was saved.
-    if (existing && next === existing.kind) {
-      setPassword(existing.password);
-      if (next === 'pin') {
-        setPinFormat(pinFormatOf(existing.password));
-      }
-    } else if (next === 'pin') {
-      if (isValidPin(password)) {
-        setPinFormat(pinFormatOf(password));
-      } else {
-        setPassword('');
-      }
-    }
-    setShowPw(false);
-    setError(null);
-  };
+  const currentTab: FormTab = tab === 'cards' && !showCards ? 'login' : tab;
 
   const onSave = () => {
     try {
       const id = saveEntry(
         db,
         {
-          kind,
           type,
           fields,
+          pins: usedPins,
           cards: showCards ? cards : [],
           folder_id: existing?.folder_id ?? null,
           title,
@@ -137,7 +127,12 @@ export function EntryForm({ existing, existingCards = [], initialKind, initialTy
     }
   };
 
-  const what = pin ? 'PIN' : info.key === 'other' ? 'password' : info.label.toLowerCase();
+  const what = info.key === 'other' ? 'entry' : info.label.toLowerCase();
+  const tabs: { key: FormTab; label: string }[] = [
+    { key: 'login', label: password ? 'Login ✓' : 'Login' },
+    { key: 'pins', label: usedPins.length ? `PINs · ${usedPins.length}` : 'PINs' },
+    ...(showCards ? [{ key: 'cards' as const, label: cards.length ? `Cards · ${cards.length}` : 'Cards' }] : []),
+  ];
 
   return (
     <View style={{ flex: 1 }}>
@@ -159,50 +154,28 @@ export function EntryForm({ existing, existingCards = [], initialKind, initialTy
             </View>
           </View>
 
-          {/* Shown when adding and when editing, so a saved entry can change between Login and PIN. */}
-          <View style={s.kindRow} accessibilityRole="radiogroup">
-            <KindButton label="Login" hint="Username and password" active={!pin} onPress={() => switchKind('login')} />
-            <KindButton label="PIN" hint="Phone, SIM, ATM, UPI" active={pin} onPress={() => switchKind('pin')} />
-          </View>
-
           <Field
             label="Title"
             value={title}
             onChangeText={setTitle}
-            placeholder={pin ? 'e.g. Phone lock, HDFC ATM, UPI' : placeholderFor(type)}
+            placeholder={placeholderFor(type)}
             autoFocus={!existing}
           />
 
-          {pin ? (
-            <View style={{ gap: 8 }}>
-              <View style={s.chips} accessibilityRole="radiogroup">
-                <FormatChip label="Numbers" active={pinFormat === 'numeric'} onPress={() => switchPinFormat('numeric')} />
-                <FormatChip
-                  label="Letters & numbers"
-                  active={pinFormat === 'alphanumeric'}
-                  onPress={() => switchPinFormat('alphanumeric')}
-                />
-              </View>
-              <Field
-                // a new key swaps the keyboard (number pad ↔ letters) at once
-                key={pinFormat}
-                label="PIN"
-                value={password}
-                onChangeText={t => setPassword(cleanPin(t, pinFormat))}
-                {...secretInputProps}
-                secureTextEntry={!showPw}
-                keyboardType={pinFormat === 'numeric' ? 'number-pad' : 'default'}
-                maxLength={pinMax(pinFormat)}
-              />
-              <View style={s.pwTools}>
-                <Text style={[s.hint, pinInvalid && s.hintBad]}>
-                  {PIN_MIN}–{pinMax(pinFormat)} {pinFormat === 'numeric' ? 'digits' : 'letters or digits'}
-                  {password.length > 0 ? ` · ${password.length} entered` : ''}
-                </Text>
-                <Button title={showPw ? 'Hide' : 'Show'} variant="soft" small onPress={() => setShowPw(v => !v)} />
-              </View>
-            </View>
-          ) : (
+          <View style={s.tabs} accessibilityRole="tablist">
+            {tabs.map(t => (
+              <Pressable
+                key={t.key}
+                accessibilityRole="tab"
+                accessibilityState={{ selected: currentTab === t.key }}
+                onPress={() => setTab(t.key)}
+                style={[s.tab, currentTab === t.key && s.tabOn]}>
+                <Text style={[s.tabText, currentTab === t.key && s.tabTextOn]}>{t.label}</Text>
+              </Pressable>
+            ))}
+          </View>
+
+          {currentTab === 'login' && (
             <>
               <Field label="Username" value={username} onChangeText={setUsername} autoCapitalize="none" importantForAutofill="no" />
               <View style={{ gap: 8 }}>
@@ -240,7 +213,13 @@ export function EntryForm({ existing, existingCards = [], initialKind, initialTy
             </>
           )}
 
-          {showCards && <CardsEditor cards={cards} onChange={setCards} />}
+          {currentTab === 'pins' && <PinsEditor pins={pins} onChange={setPins} />}
+
+          {currentTab === 'cards' && <CardsEditor cards={cards} onChange={setCards} />}
+
+          {!hasSecret && title.trim().length > 0 && (
+            <Text style={s.hint}>Add a password, a PIN{showCards ? ' or a card' : ''} to save this entry.</Text>
+          )}
 
           <Pressable
             accessibilityRole="switch"
@@ -291,6 +270,82 @@ const placeholderFor = (t: EntryType) =>
         : t === 'email'
           ? 'e.g. Gmail'
           : 'e.g. Wi-Fi, Netflix';
+
+function PinsEditor({ pins, onChange }: { pins: EntryPin[]; onChange: React.Dispatch<React.SetStateAction<EntryPin[]>> }) {
+  const update = (i: number, patch: Partial<EntryPin>) => onChange(prev => prev.map((p, j) => (j === i ? { ...p, ...patch } : p)));
+  return (
+    <View style={{ gap: 10 }}>
+      {pins.map((p, i) => (
+        <PinEditor
+          key={p.id ?? `new-${i}`}
+          pin={p}
+          onChange={patch => update(i, patch)}
+          onRemove={() => onChange(prev => prev.filter((_, j) => j !== i))}
+        />
+      ))}
+      <Button title="+ Add PIN" variant="soft" onPress={() => onChange(prev => [...prev, { label: '', value: '' }])} />
+      <Text style={s.hint}>For example the UPI PIN, ATM PIN or MPIN of this account, or a phone lock.</Text>
+    </View>
+  );
+}
+
+function PinEditor({ pin, onChange, onRemove }: { pin: EntryPin; onChange: (p: Partial<EntryPin>) => void; onRemove: () => void }) {
+  const [format, setFormat] = useState<PinFormat>(pinFormatOf(pin.value));
+  const [show, setShow] = useState(false);
+  const bad = pin.value.length > 0 && !isValidPin(pin.value, format);
+  const switchFormat = (next: PinFormat) => {
+    setFormat(next);
+    onChange({ value: cleanPin(pin.value, next) }); // letters are dropped when going to numbers only
+  };
+  return (
+    <View style={s.cardBox}>
+      <View style={s.cardTop}>
+        <View style={{ flex: 1 }}>
+          <Field
+            label="PIN name"
+            value={pin.label}
+            onChangeText={t => onChange({ label: t })}
+            placeholder="e.g. UPI PIN"
+            maxLength={30}
+            importantForAutofill="no"
+          />
+        </View>
+        <Button title="Remove" small variant="ghost" onPress={onRemove} />
+      </View>
+      {!pin.label.trim() && (
+        <View style={s.chips}>
+          {PIN_LABELS.map(l => (
+            <Pressable key={l} accessibilityRole="button" onPress={() => onChange({ label: l })} style={s.suggest}>
+              <Text style={s.suggestText}>{l}</Text>
+            </Pressable>
+          ))}
+        </View>
+      )}
+      <View style={s.chips} accessibilityRole="radiogroup">
+        <FormatChip label="Numbers" active={format === 'numeric'} onPress={() => switchFormat('numeric')} />
+        <FormatChip label="Letters & numbers" active={format === 'alphanumeric'} onPress={() => switchFormat('alphanumeric')} />
+      </View>
+      <Field
+        // a new key swaps the keyboard (number pad ↔ letters) at once
+        key={format}
+        label={pin.label.trim() || 'PIN'}
+        value={pin.value}
+        onChangeText={t => onChange({ value: cleanPin(t, format) })}
+        {...secretInputProps}
+        secureTextEntry={!show}
+        keyboardType={format === 'numeric' ? 'number-pad' : 'default'}
+        maxLength={pinMax(format)}
+      />
+      <View style={s.pwTools}>
+        <Text style={[s.hint, bad && s.hintBad]}>
+          {PIN_MIN}–{pinMax(format)} {format === 'numeric' ? 'digits' : 'letters or digits'}
+          {pin.value.length > 0 ? ` · ${pin.value.length} entered` : ''}
+        </Text>
+        <Button title={show ? 'Hide' : 'Show'} variant="soft" small onPress={() => setShow(v => !v)} />
+      </View>
+    </View>
+  );
+}
 
 function CardsEditor({ cards, onChange }: { cards: Card[]; onChange: React.Dispatch<React.SetStateAction<Card[]>> }) {
   // Functional updates: several quick changes in a row must not overwrite each other.
@@ -394,19 +449,6 @@ function CardEditor({
   );
 }
 
-function KindButton({ label, hint, active, onPress }: { label: string; hint: string; active: boolean; onPress: () => void }) {
-  return (
-    <Pressable
-      accessibilityRole="radio"
-      accessibilityState={{ checked: active }}
-      onPress={onPress}
-      style={[s.kindBtn, active && s.kindBtnOn]}>
-      <Text style={[s.kindLabel, active && s.kindLabelOn]}>{label}</Text>
-      <Text style={[s.kindHint, active && s.kindHintOn]}>{hint}</Text>
-    </Pressable>
-  );
-}
-
 function FormatChip({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
   return (
     <Pressable
@@ -464,22 +506,13 @@ const s = StyleSheet.create({
   sheet: { backgroundColor: colors.bg, borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 20, paddingBottom: 32, gap: 12 },
   handle: { alignSelf: 'center', width: 40, height: 5, borderRadius: 3, backgroundColor: colors.border },
   sheetTitle: { fontFamily: fonts.extrabold, fontSize: 20, color: colors.ink },
-  kindRow: { flexDirection: 'row', gap: 8 },
-  kindBtn: {
-    flex: 1,
-    minHeight: 60,
-    borderRadius: 14,
-    borderWidth: 1.5,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
-    paddingHorizontal: 14,
-    justifyContent: 'center',
-  },
-  kindBtnOn: { backgroundColor: colors.primary, borderColor: colors.primary },
-  kindLabel: { fontFamily: fonts.bold, fontSize: 16, color: colors.ink },
-  kindLabelOn: { color: colors.onPrimary },
-  kindHint: { fontFamily: fonts.regular, fontSize: 12, color: colors.muted },
-  kindHintOn: { color: colors.onPrimary },
+  tabs: { flexDirection: 'row', gap: 4, padding: 4, borderRadius: 24, backgroundColor: colors.surface },
+  tab: { flex: 1, minHeight: 44, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
+  tabOn: { backgroundColor: colors.primary },
+  tabText: { fontFamily: fonts.semibold, fontSize: 14, color: colors.inkSoft },
+  tabTextOn: { fontFamily: fonts.bold, color: colors.onPrimary },
+  suggest: { minHeight: 36, paddingHorizontal: 12, borderRadius: 18, borderWidth: 1, borderColor: colors.border, justifyContent: 'center' },
+  suggestText: { fontFamily: fonts.bold, fontSize: 13, color: colors.warn },
   formatChip: {
     minHeight: 44,
     paddingHorizontal: 16,

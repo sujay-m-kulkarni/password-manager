@@ -12,7 +12,7 @@ export type RootStackParamList = {
   Unlock: undefined;
   Tabs: NavigatorScreenParams<TabParamList> | undefined;
   Entry: { id: number };
-  Edit: { kind?: 'login' | 'pin'; type?: EntryType };
+  Edit: { tab?: 'login' | 'pins' | 'cards'; type?: EntryType };
   ChangePassword: undefined;
   RecoveryKey: undefined;
   Restore: undefined;

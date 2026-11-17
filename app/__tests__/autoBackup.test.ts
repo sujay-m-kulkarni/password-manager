@@ -49,7 +49,7 @@ beforeEach(() => {
 });
 
 const add = (db: Parameters<typeof saveEntry>[0], title: string) =>
-  saveEntry(db, { kind: 'login', folder_id: null, title, username: 'me', password: 'S3cret!pass', url: '', notes: '', favorite: false });
+  saveEntry(db, { folder_id: null, title, username: 'me', password: 'S3cret!pass', url: '', notes: '', favorite: false });
 
 test('off until a folder is chosen', async () => {
   const { db, dek } = await createVault(PW);

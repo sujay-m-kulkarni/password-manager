@@ -20,6 +20,16 @@ const textOf = (r: ReactTestRenderer.ReactTestRenderer) =>
     .map(n => String(n.props.children))
     .join(' | ');
 
+const pressTab = async (r: ReactTestRenderer.ReactTestRenderer, label: string) => {
+  const tab = r.root.findAll(
+    n => n.props.accessibilityRole === 'tab' && typeof n.props.onPress === 'function' && n.findAll(t => String(t.props.children).startsWith(label)).length > 0,
+  )[0];
+  await act(async () => {
+    tab.props.onPress();
+    await wait(50);
+  });
+};
+
 const pressButton = async (r: ReactTestRenderer.ReactTestRenderer, label: string) => {
   const button = r.root.findAll(
     n =>
@@ -198,15 +208,22 @@ test('a new entry returns to the list; an edited one stays on its page, read-onl
   expect(t).toContain('Netflix');
   expect(t).not.toContain('Delete entry'); // not the entry's own page
 
-  // New PIN → back on the list.
+  // New entry with only a PIN (PINs tab) → back on the list.
   await act(async () => {
     fab().props.onPress();
     await wait(50);
   });
+  await pressTab(r, 'PINs');
+  await pressButton(r, '+ Add PIN');
   await act(async () => {
-    r.root.findAll(n => n.props.accessibilityRole === 'radio' && n.findAll(x => x.props.children === 'PIN').length > 0)[0].props.onPress();
+    const inputs = r.root.findAllByType(TextInput);
+    inputs.find(i => i.props.accessibilityLabel === 'Title')!.props.onChangeText('Phone lock');
+    inputs.find(i => i.props.accessibilityLabel === 'PIN name')!.props.onChangeText('Phone lock');
   });
-  await fill('Phone lock', '482913');
+  await act(async () => {
+    r.root.findAllByType(TextInput).find(i => i.props.accessibilityLabel === 'Phone lock')!.props.onChangeText('482913');
+  });
+  expect(textOf(r)).toContain('PINs · 1');
   await pressButton(r, 'Save');
   t = textOf(r);
   expect(t).toContain('My Vault');
@@ -241,7 +258,7 @@ test('a new entry returns to the list; an edited one stays on its page, read-onl
   });
 });
 
-test('a Banking entry with a debit card: read-only first, card hidden until Show', async () => {
+test('one Banking entry with a login, a UPI PIN and a debit card: read-only first, hidden until Show', async () => {
   let r!: ReactTestRenderer.ReactTestRenderer;
   await act(async () => {
     r = ReactTestRenderer.create(<App />);
@@ -267,6 +284,14 @@ test('a Banking entry with a debit card: read-only first, card hidden until Show
     input('Password').props.onChangeText('N3t!banking#2026');
     input('IFSC').props.onChangeText('hdfc0001234');
   });
+  // The same entry also gets a UPI PIN and a card: one tab each.
+  await pressTab(r, 'PINs');
+  await pressButton(r, '+ Add PIN');
+  await pressButton(r, 'UPI PIN'); // suggested name
+  await act(async () => {
+    input('UPI PIN').props.onChangeText('482913');
+  });
+  await pressTab(r, 'Cards');
   await pressButton(r, '+ Debit card');
   await act(async () => {
     input('Card number').props.onChangeText('4111 1111 1111 1111');
@@ -280,12 +305,14 @@ test('a Banking entry with a debit card: read-only first, card hidden until Show
   await pressButton(r, 'Banking');
   let t = textOf(r);
   expect(t).toContain('HDFC Bank');
-  expect(t).toContain('1 card');
+  expect(t).toContain('1 PIN · 1 card');
 
   await pressButton(r, 'HDFC Bank');
   t = textOf(r);
   expect(t).toContain('HDFC0001234'); // IFSC, upper-cased
   expect(t).toContain('Debit card · Visa');
+  expect(t).toContain('UPI PIN');
+  expect(t).not.toContain('482 913'); // PIN hidden until Show
   expect(t).toContain('•••• 1111');
   expect(t).not.toContain('4111 1111 1111 1111');
   expect(r.root.findAllByType(TextInput).filter(i => i.props.accessibilityLabel === 'Title')).toHaveLength(0); // read-only

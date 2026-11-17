@@ -10,7 +10,7 @@ import { ClipboardToast } from '../../components/ClipboardToast';
 import { Icon, type IconName } from '../../components/Icon';
 import { Button, StrengthBar } from '../../components/ui';
 import { cardNetwork, groupCardNumber, maskCardNumber, type Card } from '../../cards';
-import { deleteEntry, getEntry, groupPin, listCards, setFavorite } from '../../db/database';
+import { deleteEntry, getEntry, groupPin, listCards, listPins, setFavorite, type EntryPin } from '../../db/database';
 import { parseFields, typeInfo } from '../../entryTypes';
 import type { RootStackParamList } from '../../navigation/types';
 import { copyWithAutoClear } from '../../security/clipboard';
@@ -32,6 +32,7 @@ export function EntryDetailScreen({ navigation, route }: Props) {
 
   const entry = useMemo(() => getEntry(db, route.params.id), [db, route.params.id, dataVersion]); // eslint-disable-line react-hooks/exhaustive-deps
   const cards = useMemo(() => listCards(db, route.params.id), [db, route.params.id, dataVersion]); // eslint-disable-line react-hooks/exhaustive-deps
+  const pins = useMemo(() => listPins(db, route.params.id), [db, route.params.id, dataVersion]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!entry) {
     return null;
@@ -43,6 +44,7 @@ export function EntryDetailScreen({ navigation, route }: Props) {
         <EntryForm
           existing={entry}
           existingCards={cards}
+          existingPins={pins}
           onCancel={stopEditing}
           onSaved={() => {
             touchData();
@@ -56,15 +58,17 @@ export function EntryDetailScreen({ navigation, route }: Props) {
 
   const t = typeInfo(entry.type);
   const c = folderColor(t.color);
-  const isPin = entry.kind === 'pin';
+  const hasPassword = entry.password.length > 0;
   const strength = estimateStrength(entry.password);
-  const fields = isPin ? {} : parseFields(entry.type, entry.fields);
+  const fields = parseFields(entry.type, entry.fields);
   const copy = (text: string) => copyWithAutoClear(text, clipboardSec);
 
   const onDelete = () =>
     Alert.alert(
       'Delete this entry?',
-      `"${entry.title}"${cards.length ? ` and its ${cards.length} ${cards.length === 1 ? 'card' : 'cards'}` : ''} will be permanently removed from the vault.`,
+      `"${entry.title}"${
+        pins.length || cards.length ? ' with its PINs and cards' : ''
+      } will be permanently removed from the vault.`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -111,9 +115,9 @@ export function EntryDetailScreen({ navigation, route }: Props) {
                 <View style={s.pill}>
                   <Text style={[s.pillText, { color: c.ink }]}>{t.label}</Text>
                 </View>
-                {isPin && (
+                {pins.length > 0 && (
                   <View style={s.pill}>
-                    <Text style={[s.pillText, { color: colors.warnInk }]}>PIN</Text>
+                    <Text style={[s.pillText, { color: colors.warnInk }]}>{pins.length === 1 ? '1 PIN' : `${pins.length} PINs`}</Text>
                   </View>
                 )}
               </View>
@@ -127,12 +131,7 @@ export function EntryDetailScreen({ navigation, route }: Props) {
               <SmallBtn label="Copy username" text="Copy" onPress={() => copy(entry.username!)} />
             </Row>
           )}
-          {isPin ? (
-            <Row label="PIN" value={shown ? groupPin(entry.password) : '•'.repeat(entry.password.length)} big>
-              <SmallBtn label={shown ? 'Hide PIN' : 'Show PIN'} text={shown ? 'Hide' : 'Show'} onPress={() => setShown(v => !v)} muted />
-              <SmallBtn label="Copy PIN" text="Copy" onPress={() => copy(entry.password)} />
-            </Row>
-          ) : (
+          {hasPassword && (
             <>
               <Row label="Password" value={shown ? entry.password : '•'.repeat(12)} mono>
                 <SmallBtn
@@ -157,7 +156,16 @@ export function EntryDetailScreen({ navigation, route }: Props) {
               </Row>
             ))}
 
-          {t.cards && !isPin && cards.length > 0 && (
+          {pins.length > 0 && (
+            <>
+              <Text style={s.section}>PINs</Text>
+              {pins.map(p => (
+                <PinRow key={p.id} pin={p} onCopy={copy} />
+              ))}
+            </>
+          )}
+
+          {t.cards && cards.length > 0 && (
             <>
               <Text style={s.section}>Cards</Text>
               {cards.map(card => (
@@ -175,6 +183,17 @@ export function EntryDetailScreen({ navigation, route }: Props) {
       </ScrollView>
       <ClipboardToast bottom={24} />
     </SafeAreaView>
+  );
+}
+
+/** One named PIN, hidden until Show. */
+function PinRow({ pin, onCopy }: { pin: EntryPin; onCopy: (text: string) => void }) {
+  const [shown, setShown] = useState(false);
+  return (
+    <Row label={pin.label} value={shown ? groupPin(pin.value) : '•'.repeat(pin.value.length)} big>
+      <SmallBtn label={shown ? `Hide ${pin.label}` : `Show ${pin.label}`} text={shown ? 'Hide' : 'Show'} onPress={() => setShown(v => !v)} muted />
+      <SmallBtn label={`Copy ${pin.label}`} text="Copy" onPress={() => onCopy(pin.value)} />
+    </Row>
   );
 }
 

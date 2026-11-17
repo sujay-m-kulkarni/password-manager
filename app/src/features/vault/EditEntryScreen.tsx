@@ -17,7 +17,7 @@ export function EditEntryScreen({ navigation, route }: Props) {
     <SafeAreaView style={s.root} edges={['top', 'bottom']}>
       <EntryForm
         existing={null}
-        initialKind={route.params?.kind}
+        initialTab={route.params?.tab}
         initialType={route.params?.type}
         onCancel={cancel}
         onSaved={() => {

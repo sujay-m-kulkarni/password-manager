@@ -9,6 +9,7 @@ in every PR.
 - Entry types replace folders: Banking, Investments, Social media, Email and Other, each with its own filter chip and colour. Your folders were turned into the matching types.
 - Banking entries hold the account number, IFSC and customer ID, plus the account’s debit and credit cards (number, expiry, name on card, card PIN; no CVV).
 - Investments entries (Zerodha, Groww…) hold the client ID and demat ID.
+- One entry holds a login, PINs and cards: the new and edit screens have tabs Login · PINs · Cards. Add several named PINs (UPI PIN, ATM PIN, MPIN…) to one entry; a phone lock is just a PIN with no password. Your PIN entries were kept, each as an entry with one PIN.
 - An entry opens read-only; card numbers and PINs stay hidden until you tap Show. Edit turns the same screen into text boxes, with Save and Cancel.
 
 ## 1.4.0

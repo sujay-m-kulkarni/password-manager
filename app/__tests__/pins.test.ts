@@ -32,14 +32,14 @@ function fakeDb() {
 }
 
 const base: EntryInput = {
-  kind: 'pin',
   folder_id: null,
   title: 'Phone lock',
-  username: 'left over',
-  password: '482913',
-  url: 'https://left.over',
+  username: '',
+  password: '',
+  url: '',
   notes: '',
   favorite: false,
+  pins: [{ label: 'Phone lock', value: '482913' }],
 };
 
 describe('PIN validation', () => {
@@ -90,60 +90,45 @@ describe('PIN grouping for display', () => {
   });
 });
 
-describe('saveEntry', () => {
-  it('stores a PIN with kind "pin" and drops username and website', () => {
+describe('saveEntry with PINs', () => {
+  it('stores the entry and its named PINs; a PIN-only entry has no password', () => {
     const { db, calls } = fakeDb();
     expect(saveEntry(db, base)).toBe(7);
     const insert = calls.find(c => c.sql.includes('INSERT INTO entries'))!;
-    expect(insert.sql).toContain('kind');
-    // kind, type, fields, folder, title, username, password, url, notes, favorite, created, updated
-    expect(insert.params.slice(0, 10)).toEqual([
-      'pin',
-      'other',
-      null,
-      null,
-      'Phone lock',
-      null,
-      '482913',
-      null,
-      null,
-      0,
-    ]);
+    // kind (always 'login' now), type, fields, folder, title, username, password, url, notes, favorite
+    expect(insert.params.slice(0, 10)).toEqual(['login', 'other', null, null, 'Phone lock', null, '', null, null, 0]);
+    const pin = calls.find(c => c.sql.includes('INSERT INTO pins'))!;
+    expect(pin.params.slice(0, 3)).toEqual([7, 'Phone lock', '482913']);
   });
 
   it('refuses an invalid PIN and writes nothing', () => {
     const { db, calls } = fakeDb();
-    expect(() => saveEntry(db, { ...base, password: '12-ab' })).toThrow('4 to 12 digits');
-    expect(() => saveEntry(db, { ...base, password: '123' })).toThrow('4 to 12 digits');
+    expect(() => saveEntry(db, { ...base, pins: [{ label: 'UPI PIN', value: '12-ab' }] })).toThrow('UPI PIN: 4 to 12 digits');
+    expect(() => saveEntry(db, { ...base, pins: [{ label: '', value: '123' }] })).toThrow('PIN: 4 to 12 digits');
     expect(calls).toHaveLength(0);
   });
 
-  it('keeps username and website for a login', () => {
+  it('needs a password, a PIN or a card', () => {
     const { db, calls } = fakeDb();
-    saveEntry(db, { ...base, kind: 'login', password: 'not a pin!' }, 3);
+    expect(() => saveEntry(db, { ...base, pins: [] })).toThrow('Add a password, a PIN or a card.');
+    expect(calls).toHaveLength(0);
+  });
+
+  it('keeps username and website next to PINs', () => {
+    const { db, calls } = fakeDb();
+    saveEntry(db, { ...base, username: 'me', password: 'not a pin!', url: 'https://bank.in' }, 3);
     const update = calls.find(c => c.sql.includes('UPDATE entries'))!;
-    expect(update.params.slice(0, 8)).toEqual([
-      'login',
-      'other',
-      null,
-      null,
-      'Phone lock',
-      'left over',
-      'not a pin!',
-      'https://left.over',
-    ]);
+    expect(update.params.slice(5, 8)).toEqual(['me', 'not a pin!', 'https://bank.in']);
     expect(update.params[update.params.length - 1]).toBe(3);
   });
 });
 
 describe('listEntries', () => {
-  it('filters by kind when asked', () => {
+  it('can show only entries that hold PINs', () => {
     const { db, calls } = fakeDb();
-    listEntries(db, '', null, 'pin');
-    expect(calls[0].sql).toContain('e.kind = ?');
-    expect(calls[0].params).toEqual(['pin']);
+    listEntries(db, '', null, true);
+    expect(calls[0].sql).toContain('EXISTS (SELECT 1 FROM pins');
     listEntries(db, '', null);
-    expect(calls[1].sql).not.toContain('e.kind = ?');
-    expect(calls[1].params).toEqual([]);
+    expect(calls[1].sql).not.toContain('EXISTS (SELECT 1 FROM pins');
   });
 });

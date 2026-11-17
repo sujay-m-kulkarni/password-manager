@@ -13,7 +13,7 @@
  */
 import type { DB, Scalar } from '@op-engineering/op-sqlite';
 import QuickCrypto from 'react-native-quick-crypto';
-import { getSetting, setSetting, type Entry, type Folder } from '../db/database';
+import { PIN_ENTRIES_TO_PINS, getSetting, setSetting, type Entry, type Folder } from '../db/database';
 import { Buffer, unwrap, wipe, wrap, type Wrapped } from './crypto';
 import { readHeader, unwrapWithPassword, unwrapWithRecovery, type Header } from './keyHierarchy';
 import { SET_TYPE_FROM_FOLDER } from '../entryTypes';
@@ -45,7 +45,9 @@ export type BackupCard = {
   updated_at: number;
 };
 
-export type BackupData = { schema: number; folders: Folder[]; entries: Entry[]; cards?: BackupCard[] };
+export type BackupPin = { id: number; entry_id: number; label: string; value: string; created_at: number; updated_at: number };
+
+export type BackupData = { schema: number; folders: Folder[]; entries: Entry[]; cards?: BackupCard[]; pins?: BackupPin[] };
 
 function dataKey(dek: Buffer): Buffer {
   return QuickCrypto.createHmac('sha256', dek).update(Buffer.from('vault-backup-data:v1', 'utf8')).digest() as Buffer;
@@ -64,6 +66,7 @@ export function createBackup(db: DB, dek: Buffer, now = new Date()): { text: str
     folders: rows<Folder>(db, 'SELECT id, name, color FROM folders ORDER BY id'),
     entries: rows<Entry>(db, 'SELECT * FROM entries ORDER BY id'),
     cards: rows<BackupCard>(db, 'SELECT * FROM cards ORDER BY id'),
+    pins: rows<BackupPin>(db, 'SELECT * FROM pins ORDER BY id'),
   };
   const key = dataKey(dek);
   try {
@@ -163,6 +166,7 @@ export async function openBackup(file: BackupFile, secret: string): Promise<Open
 export function restoreInto(db: DB, data: BackupData) {
   db.executeSync('BEGIN');
   try {
+    db.executeSync('DELETE FROM pins');
     db.executeSync('DELETE FROM cards');
     db.executeSync('DELETE FROM entries');
     db.executeSync('DELETE FROM folders');
@@ -195,6 +199,16 @@ export function restoreInto(db: DB, data: BackupData) {
     // Backups from before types existed: choose each entry's type from its folder, as the upgrade did.
     if (data.entries.length && data.entries.every(e => e.type == null)) {
       db.executeSync(SET_TYPE_FROM_FOLDER);
+    }
+    for (const p of data.pins ?? []) {
+      db.executeSync(
+        'INSERT INTO pins (id, entry_id, label, value, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)',
+        [p.id, p.entry_id, p.label, p.value, p.created_at, p.updated_at],
+      );
+    }
+    // Backups from before 1.5.0: PIN entries become entries holding one PIN, as the upgrade did.
+    for (const sql of PIN_ENTRIES_TO_PINS) {
+      db.executeSync(sql);
     }
     for (const c of data.cards ?? []) {
       db.executeSync(

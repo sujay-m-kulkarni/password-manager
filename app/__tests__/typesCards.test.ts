@@ -18,6 +18,7 @@ import {
   deleteEntry,
   getEntry,
   listCards,
+  listPins,
   listEntries,
   openVault,
   resetMetaConnection,
@@ -37,7 +38,6 @@ const VISA = '4111111111111111';
 const RUPAY = '6074 8200 0000 0005'; // RuPay-style prefix, valid Luhn
 
 const login = (over: Partial<EntryInput> = {}): EntryInput => ({
-  kind: 'login',
   type: 'banking',
   folder_id: null,
   title: 'HDFC Bank',
@@ -75,6 +75,7 @@ describe('upgrading an existing vault', () => {
     add(4, 4, 'Instagram');
     add(5, 5, 'Zerodha');
     add(6, null, 'Wi-Fi');
+    old.executeSync(`INSERT INTO entries (id, folder_id, title, password, created_at, updated_at, kind) VALUES (7, 1, 'HDFC ATM', '2468', 1, 1, 'pin')`);
     old.executeSync('PRAGMA user_version = 2');
     old.close();
 
@@ -87,8 +88,12 @@ describe('upgrading an existing vault', () => {
       Instagram: 'social',
       Zerodha: 'investments',
       'Wi-Fi': 'other',
+      'HDFC ATM': 'banking',
     });
     expect(listCards(db, 1)).toEqual([]);
+    // The old PIN entry now holds its PIN as a named PIN, and has no password.
+    expect(listPins(db, 7)).toMatchObject([{ label: 'PIN', value: '2468' }]);
+    expect(getEntry(db, 7)).toMatchObject({ password: '', kind: 'login' });
   });
 });
 
@@ -108,8 +113,8 @@ describe('type fields', () => {
     saveEntry(db, login());
     saveEntry(db, login({ type: 'social', title: 'Instagram' }));
     saveEntry(db, login({ type: 'investments', title: 'Groww' }));
-    expect(listEntries(db, '', null, null, 'investments').map(e => e.title)).toEqual(['Groww']);
-    expect(listEntries(db, '', null, null, 'banking').map(e => e.title)).toEqual(['HDFC Bank']);
+    expect(listEntries(db, '', null, false, 'investments').map(e => e.title)).toEqual(['Groww']);
+    expect(listEntries(db, '', null, false, 'banking').map(e => e.title)).toEqual(['HDFC Bank']);
   });
 });
 
@@ -178,12 +183,15 @@ describe('backups', () => {
       entries: [
         { id: 1, kind: 'login', folder_id: 1, title: 'SBI', username: null, password: 'x', url: null, notes: null, favorite: 0, created_at: 1, updated_at: 1 },
         { id: 2, kind: 'login', folder_id: 3, title: 'Gmail', username: null, password: 'x', url: null, notes: null, favorite: 0, created_at: 1, updated_at: 1 },
+        { id: 3, kind: 'pin', folder_id: null, title: 'Phone lock', username: null, password: '482913', url: null, notes: null, favorite: 0, created_at: 1, updated_at: 1 },
       ] as never,
     });
     expect(listEntries(db, '', null).map(e => [e.title, e.type])).toEqual([
       ['Gmail', 'email'],
+      ['Phone lock', 'other'],
       ['SBI', 'banking'],
     ]);
+    expect(listPins(db, 3)).toMatchObject([{ label: 'PIN', value: '482913' }]);
   });
 });
 
