@@ -4,6 +4,10 @@ What's new in each release, newest first. The GitHub release notes are made from
 merged pull request (`app/scripts/release-notes.mjs`); this file keeps the whole history in one place and is updated
 in every PR.
 
+## 1.3.2
+
+- Fixed: Vault could close by itself a moment after opening (often during the fingerprint prompt), most often after updating from an older version.
+
 ## 1.3.1
 
 - If Vault closes unexpectedly, the next launch shows the report before anything else, and keeps showing it until you close it, so it can always be shared.

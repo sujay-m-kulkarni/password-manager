@@ -7,6 +7,7 @@ jest.mock('react-native-quick-crypto', () => require('../test-support/nodeCrypto
 jest.mock('react-native-keychain', () => require('../test-support/keychain'));
 
 import * as OpSqlite from '@op-engineering/op-sqlite';
+import { resetMetaConnection } from '../src/db/database';
 import {
   FOLDER_NAME_MAX,
   addFolder,
@@ -25,7 +26,7 @@ const PW = 'purple mango river forty';
 const mock = OpSqlite as unknown as { __reset: () => void };
 type DB = Parameters<typeof saveEntry>[0];
 
-beforeEach(() => mock.__reset());
+beforeEach(() => (mock.__reset(), resetMetaConnection()));
 
 const add = (db: DB, title: string, folder_id: number | null) =>
   saveEntry(db, { kind: 'login', folder_id, title, username: '', password: 'S3cret!pass', url: '', notes: '', favorite: false });

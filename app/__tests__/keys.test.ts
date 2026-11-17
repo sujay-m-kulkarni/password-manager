@@ -6,6 +6,7 @@ jest.mock('react-native-quick-crypto', () => require('../test-support/nodeCrypto
 jest.mock('react-native-keychain', () => require('../test-support/keychain'));
 
 import * as OpSqlite from '@op-engineering/op-sqlite';
+import { resetMetaConnection } from '../src/db/database';
 import { saveEntry } from '../src/db/database';
 import { Buffer } from '../src/security/crypto';
 import { backupDue, createBackup, noteBackup, openBackup, parseBackup, restoreInto } from '../src/security/backup';
@@ -35,7 +36,7 @@ const add = (db: Parameters<typeof saveEntry>[0], title: string, password = 'S3c
 const titles = (db: Parameters<typeof saveEntry>[0]) =>
   (db.executeSync('SELECT title FROM entries ORDER BY title').rows as { title: string }[]).map(r => r.title);
 
-beforeEach(() => mock.__reset());
+beforeEach(() => (mock.__reset(), resetMetaConnection()));
 
 describe('recovery key format', () => {
   it('is 24 characters in six groups, from an unambiguous alphabet', () => {
@@ -172,7 +173,7 @@ describe('backup', () => {
     const text = createBackup(db, dek).text;
     db.close();
 
-    mock.__reset(); // a different phone: no vault
+    (mock.__reset(), resetMetaConnection()); // a different phone: no vault
     const opened = await openBackup(parseBackup(text), code);
     const newDb = createVaultFromBackup(opened!.header, opened!.dek);
     restoreInto(newDb, opened!.data);
