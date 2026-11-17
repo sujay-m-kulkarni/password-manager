@@ -1,0 +1,46 @@
+diff --git a/node_modules/@op-engineering/op-sqlite/cpp/OPWorkerThread.cpp b/node_modules/@op-engineering/op-sqlite/cpp/OPWorkerThread.cpp
+index 62ae476..b5846fa 100644
+--- a/node_modules/@op-engineering/op-sqlite/cpp/OPWorkerThread.cpp
++++ b/node_modules/@op-engineering/op-sqlite/cpp/OPWorkerThread.cpp
+@@ -14,7 +14,8 @@ WorkerThread::~WorkerThread() { shutdown(); }
+ void WorkerThread::shutdown() {
+   // Checked before call_once: on the worker thread it could otherwise block on
+   // another caller's join of this very thread.
+-  if (std::this_thread::get_id() == thread_id) {
++  if (!stopped.load(std::memory_order_acquire) &&
++      std::this_thread::get_id() == thread_id) {
+     throw std::system_error(
+         std::make_error_code(std::errc::resource_deadlock_would_occur),
+         "[op-sqlite] WorkerThread::shutdown() called from its own thread");
+@@ -29,6 +30,7 @@ void WorkerThread::shutdown() {
+     }
+     work_pending.notify_one();
+     thread.join();
++    stopped.store(true, std::memory_order_release);
+   });
+ }
+ 
+diff --git a/node_modules/@op-engineering/op-sqlite/cpp/OPWorkerThread.hpp b/node_modules/@op-engineering/op-sqlite/cpp/OPWorkerThread.hpp
+index 4321b7c..384f476 100644
+--- a/node_modules/@op-engineering/op-sqlite/cpp/OPWorkerThread.hpp
++++ b/node_modules/@op-engineering/op-sqlite/cpp/OPWorkerThread.hpp
+@@ -6,6 +6,7 @@
+ #include <queue>
+ #include <stdexcept>
+ #include <system_error>
++#include <atomic>
+ #include <thread>
+ 
+ namespace opsqlite {
+@@ -68,6 +69,11 @@ private:
+   // Written only by the constructor, so shutdown() can read it without a lock
+   std::thread::id thread_id;
+ 
++  // Set once the worker has been joined. After that its id may be reused by a
++  // new thread (Android reuses thread ids), so the own-thread check in
++  // shutdown() must no longer compare against it.
++  std::atomic<bool> stopped{false};
++
+   // The thread's loop: runs queued tasks until shut down and drained
+   void do_work();
+ };

@@ -43,28 +43,19 @@ const RECOVERY_KDF: Omit<KdfParams, 'salt'> = { alg: 'argon2id', memKiB: 8 * 102
 // ---------- meta: header and non-secret flags ----------
 
 export function getMeta(key: string): string | null {
-  const meta = openMeta();
-  try {
-    const raw = meta.executeSync('SELECT value FROM meta WHERE key = ?', [key]).rows[0]?.value;
-    return typeof raw === 'string' ? raw : null;
-  } finally {
-    meta.close();
-  }
+  const raw = openMeta().executeSync('SELECT value FROM meta WHERE key = ?', [key]).rows[0]?.value;
+  return typeof raw === 'string' ? raw : null;
 }
 
 export function setMeta(key: string, value: string | null) {
   const meta = openMeta();
-  try {
-    if (value == null) {
-      meta.executeSync('DELETE FROM meta WHERE key = ?', [key]);
-    } else {
-      meta.executeSync(
-        'INSERT INTO meta (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value',
-        [key, value],
-      );
-    }
-  } finally {
-    meta.close();
+  if (value == null) {
+    meta.executeSync('DELETE FROM meta WHERE key = ?', [key]);
+  } else {
+    meta.executeSync(
+      'INSERT INTO meta (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value',
+      [key, value],
+    );
   }
 }
 

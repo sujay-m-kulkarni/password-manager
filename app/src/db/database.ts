@@ -32,11 +32,25 @@ export function deleteVaultFile() {
   }
 }
 
-/** Plaintext DB holding only non-secret header data (salt, KDF params, wrapped key). */
+let metaDb: DB | null = null;
+
+/**
+ * Plaintext DB holding only non-secret header data (salt, KDF params, wrapped key).
+ * One connection for the life of the app: opening and closing it for every read made op-sqlite
+ * start and stop a thread each time, which set off its thread-id crash (see patches/).
+ */
 export function openMeta(): DB {
-  const db = open({ name: META_DB });
-  db.executeSync('CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)');
-  return db;
+  if (!metaDb) {
+    const db = open({ name: META_DB });
+    db.executeSync('CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)');
+    metaDb = db;
+  }
+  return metaDb;
+}
+
+/** For tests that replace the database files underneath. */
+export function resetMetaConnection() {
+  metaDb = null;
 }
 
 // ---------- migrations ----------
