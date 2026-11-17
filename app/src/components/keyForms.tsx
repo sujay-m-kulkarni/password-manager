@@ -135,7 +135,7 @@ export function RecoveryKeyPanel({ code, onDone, doneTitle }: { code: string; on
         accessibilityState={{ checked: writtenDown }}
         onPress={() => setWrittenDown(v => !v)}
         style={s.checkRow}>
-        <View style={[s.check, writtenDown && s.checkOn]}>{writtenDown && <Icon name="check" size={16} color={colors.white} strokeWidth={3} />}</View>
+        <View style={[s.check, writtenDown && s.checkOn]}>{writtenDown && <Icon name="check" size={16} color={colors.onPrimary} strokeWidth={3} />}</View>
         <Text style={s.checkText}>I've written down my recovery key</Text>
       </Pressable>
       <Button title={doneTitle} onPress={onDone} disabled={!writtenDown} />
@@ -220,12 +220,12 @@ export const s = StyleSheet.create({
     flexWrap: 'wrap',
     justifyContent: 'center',
     gap: 10,
-    backgroundColor: colors.ink,
+    backgroundColor: colors.deep,
     borderRadius: 18,
     paddingVertical: 20,
     paddingHorizontal: 12,
   },
-  codeGroup: { fontFamily: 'monospace', fontSize: 24, letterSpacing: 2, color: colors.white },
+  codeGroup: { fontFamily: 'monospace', fontSize: 24, letterSpacing: 2, color: colors.ink },
   checkRow: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 48 },
   check: {
     width: 26,
@@ -247,8 +247,8 @@ export const s = StyleSheet.create({
     padding: 14,
   },
   switchLabel: { fontFamily: fonts.semibold, fontSize: 15, color: colors.ink },
-  switch: { width: 48, height: 28, borderRadius: 14, backgroundColor: '#D9D3F5', padding: 3 },
+  switch: { width: 48, height: 28, borderRadius: 14, backgroundColor: colors.raised, padding: 3 },
   switchOn: { backgroundColor: colors.primary },
-  knob: { width: 22, height: 22, borderRadius: 11, backgroundColor: colors.white },
-  knobOn: { transform: [{ translateX: 20 }] },
+  knob: { width: 22, height: 22, borderRadius: 11, backgroundColor: colors.ink },
+  knobOn: { transform: [{ translateX: 20 }], backgroundColor: colors.onPrimary },
 });

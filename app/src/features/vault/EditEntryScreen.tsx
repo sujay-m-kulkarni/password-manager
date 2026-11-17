@@ -18,10 +18,13 @@ import {
   secretInputProps,
 } from '../../components/ui';
 import {
-  PIN_MAX,
   PIN_MIN,
+  cleanPin,
   getEntry,
   isValidPin,
+  pinFormatOf,
+  pinMax,
+  type PinFormat,
   listFolders,
   saveEntry,
   type EntryKind,
@@ -48,6 +51,9 @@ export function EditEntryScreen({ navigation, route }: Props) {
     existing?.kind ?? route.params?.kind ?? 'login',
   );
   const pin = kind === 'pin';
+  const [pinFormat, setPinFormat] = useState<PinFormat>(
+    existing?.kind === 'pin' ? pinFormatOf(existing.password) : 'numeric',
+  );
   const [title, setTitle] = useState(existing?.title ?? '');
   const [username, setUsername] = useState(existing?.username ?? '');
   const [password, setPassword] = useState(existing?.password ?? '');
@@ -73,11 +79,18 @@ export function EditEntryScreen({ navigation, route }: Props) {
   }, [genOpen]);
   const [error, setError] = useState<string | null>(null);
 
-  const pinInvalid = pin && password.length > 0 && !isValidPin(password);
+  const pinInvalid =
+    pin && password.length > 0 && !isValidPin(password, pinFormat);
   const canSave =
     title.trim().length > 0 &&
     password.length > 0 &&
-    (!pin || isValidPin(password));
+    (!pin || isValidPin(password, pinFormat));
+
+  const switchPinFormat = (next: PinFormat) => {
+    setPinFormat(next);
+    setPassword(p => cleanPin(p, next)); // letters are dropped when going to numbers only
+    setError(null);
+  };
   const strength = estimateStrength(password);
 
   const switchKind = (next: EntryKind) => {
@@ -89,8 +102,15 @@ export function EditEntryScreen({ navigation, route }: Props) {
     // if it is 4–12 digits); switching back to the saved type restores what was saved.
     if (existing && next === existing.kind) {
       setPassword(existing.password);
-    } else if (next === 'pin' && !isValidPin(password)) {
-      setPassword('');
+      if (next === 'pin') {
+        setPinFormat(pinFormatOf(existing.password));
+      }
+    } else if (next === 'pin') {
+      if (isValidPin(password)) {
+        setPinFormat(pinFormatOf(password));
+      } else {
+        setPassword('');
+      }
     }
     setShowPw(false);
     setError(null);
@@ -165,20 +185,33 @@ export function EditEntryScreen({ navigation, route }: Props) {
           />
           {pin ? (
             <View style={{ gap: 8 }}>
+              <View style={s.formatRow} accessibilityRole="radiogroup">
+                <FormatChip
+                  label="Numbers"
+                  active={pinFormat === 'numeric'}
+                  onPress={() => switchPinFormat('numeric')}
+                />
+                <FormatChip
+                  label="Letters & numbers"
+                  active={pinFormat === 'alphanumeric'}
+                  onPress={() => switchPinFormat('alphanumeric')}
+                />
+              </View>
               <Field
+                // a new key swaps the keyboard (number pad ↔ letters) at once
+                key={pinFormat}
                 label="PIN"
                 value={password}
-                onChangeText={t =>
-                  setPassword(t.replace(/[^0-9]/g, '').slice(0, PIN_MAX))
-                }
+                onChangeText={t => setPassword(cleanPin(t, pinFormat))}
                 {...secretInputProps}
                 secureTextEntry={!showPw}
-                keyboardType="number-pad"
-                maxLength={PIN_MAX}
+                keyboardType={pinFormat === 'numeric' ? 'number-pad' : 'default'}
+                maxLength={pinMax(pinFormat)}
               />
               <View style={s.pwTools}>
                 <Text style={[s.pinHint, pinInvalid && s.pinHintBad]}>
-                  {PIN_MIN}–{PIN_MAX} digits
+                  {PIN_MIN}–{pinMax(pinFormat)}{' '}
+                  {pinFormat === 'numeric' ? 'digits' : 'letters or digits'}
                   {password.length > 0 ? ` · ${password.length} entered` : ''}
                 </Text>
                 <Button
@@ -332,6 +365,27 @@ function KindButton({
   );
 }
 
+function FormatChip({
+  label,
+  active,
+  onPress,
+}: {
+  label: string;
+  active: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="radio"
+      accessibilityState={{ checked: active }}
+      onPress={onPress}
+      style={[s.formatChip, active && s.formatChipOn]}
+    >
+      <Text style={[s.formatText, active && s.formatTextOn]}>{label}</Text>
+    </Pressable>
+  );
+}
+
 function FolderChip({
   label,
   color,
@@ -351,7 +405,7 @@ function FolderChip({
     : color
     ? c.soft
     : colors.surface;
-  const fg = active ? colors.white : color ? c.ink : colors.inkSoft;
+  const fg = active ? colors.onPrimary : color ? c.ink : colors.inkSoft;
   return (
     <Pressable
       accessibilityRole="radio"
@@ -399,7 +453,7 @@ const s = StyleSheet.create({
     width: 48,
     height: 28,
     borderRadius: 14,
-    backgroundColor: '#D9D3F5',
+    backgroundColor: colors.raised,
     padding: 3,
   },
   switchOn: { backgroundColor: colors.primary },
@@ -407,10 +461,10 @@ const s = StyleSheet.create({
     width: 22,
     height: 22,
     borderRadius: 11,
-    backgroundColor: colors.white,
+    backgroundColor: colors.ink,
   },
-  knobOn: { transform: [{ translateX: 20 }] },
-  scrim: { flex: 1, backgroundColor: 'rgba(27,21,48,0.45)' },
+  knobOn: { transform: [{ translateX: 20 }], backgroundColor: colors.onPrimary },
+  scrim: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)' },
   sheet: {
     backgroundColor: colors.bg,
     borderTopLeftRadius: 28,
@@ -428,6 +482,19 @@ const s = StyleSheet.create({
   },
   sheetTitle: { fontFamily: fonts.extrabold, fontSize: 20, color: colors.ink },
   kindRow: { flexDirection: 'row', gap: 8 },
+  formatRow: { flexDirection: 'row', gap: 8 },
+  formatChip: {
+    minHeight: 44,
+    paddingHorizontal: 16,
+    borderRadius: 22,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    justifyContent: 'center',
+  },
+  formatChipOn: { backgroundColor: colors.primary, borderColor: colors.primary },
+  formatText: { fontFamily: fonts.semibold, fontSize: 14, color: colors.inkSoft },
+  formatTextOn: { color: colors.onPrimary },
   kindBtn: {
     flex: 1,
     minHeight: 60,
@@ -440,9 +507,9 @@ const s = StyleSheet.create({
   },
   kindBtnOn: { backgroundColor: colors.primary, borderColor: colors.primary },
   kindLabel: { fontFamily: fonts.bold, fontSize: 16, color: colors.ink },
-  kindLabelOn: { color: colors.white },
+  kindLabelOn: { color: colors.onPrimary },
   kindHint: { fontFamily: fonts.regular, fontSize: 12, color: colors.muted },
-  kindHintOn: { color: '#EDE8FF' },
+  kindHintOn: { color: colors.onPrimary },
   pinHint: {
     flex: 1,
     fontFamily: fonts.semibold,

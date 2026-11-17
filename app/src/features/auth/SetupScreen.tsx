@@ -215,7 +215,7 @@ function Steps({ at }: { at: number }) {
 
 const st = StyleSheet.create({
   steps: { flexDirection: 'row', gap: 6 },
-  step: { flex: 1, height: 6, borderRadius: 3, backgroundColor: '#D9D3F5' },
+  step: { flex: 1, height: 6, borderRadius: 3, backgroundColor: colors.raised },
   link: { minHeight: 48, justifyContent: 'center', alignItems: 'center' },
   linkText: { fontFamily: fonts.bold, fontSize: 15, color: colors.primary },
   fileBox: { backgroundColor: colors.surface, borderRadius: 14, padding: 14, gap: 2 },

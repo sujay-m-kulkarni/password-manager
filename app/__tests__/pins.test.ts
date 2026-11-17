@@ -11,8 +11,10 @@ jest.mock('react-native-quick-crypto', () => ({
 
 import type { DB } from '@op-engineering/op-sqlite';
 import {
+  cleanPin,
   groupPin,
   isValidPin,
+  pinFormatOf,
   listEntries,
   saveEntry,
   type EntryInput,
@@ -41,15 +43,41 @@ const base: EntryInput = {
 };
 
 describe('PIN validation', () => {
-  it('accepts 4 to 12 digits only', () => {
-    expect(isValidPin('1234')).toBe(true);
+  it('numbers: 4 to 12 digits only', () => {
+    expect(isValidPin('1234', 'numeric')).toBe(true);
+    expect(isValidPin('482913', 'numeric')).toBe(true);
+    expect(isValidPin('123456789012', 'numeric')).toBe(true);
+    expect(isValidPin('123', 'numeric')).toBe(false);
+    expect(isValidPin('1234567890123', 'numeric')).toBe(false);
+    expect(isValidPin('12a4', 'numeric')).toBe(false);
+    expect(isValidPin('12 34', 'numeric')).toBe(false);
+    expect(isValidPin('', 'numeric')).toBe(false);
+  });
+
+  it('letters & numbers: 4 to 16 letters or digits, nothing else', () => {
+    expect(isValidPin('Ab12', 'alphanumeric')).toBe(true);
+    expect(isValidPin('1234', 'alphanumeric')).toBe(true);
+    expect(isValidPin('aB3dE6gH9jK2mN5p', 'alphanumeric')).toBe(true);
+    expect(isValidPin('aB3dE6gH9jK2mN5pQ', 'alphanumeric')).toBe(false);
+    expect(isValidPin('ab1', 'alphanumeric')).toBe(false);
+    expect(isValidPin('ab-12', 'alphanumeric')).toBe(false);
+    expect(isValidPin('ab 12', 'alphanumeric')).toBe(false);
+  });
+
+  it('without a format accepts either kind', () => {
     expect(isValidPin('482913')).toBe(true);
-    expect(isValidPin('123456789012')).toBe(true);
-    expect(isValidPin('123')).toBe(false);
-    expect(isValidPin('1234567890123')).toBe(false);
-    expect(isValidPin('12a4')).toBe(false);
-    expect(isValidPin('12 34')).toBe(false);
-    expect(isValidPin('')).toBe(false);
+    expect(isValidPin('Ab12cd')).toBe(true);
+    expect(isValidPin('S3cret!pass')).toBe(false);
+  });
+
+  it('tells the format from what the PIN holds, and cleans typed text', () => {
+    expect(pinFormatOf('482913')).toBe('numeric');
+    expect(pinFormatOf('Ab12')).toBe('alphanumeric');
+    expect(cleanPin('48-29 13', 'numeric')).toBe('482913');
+    expect(cleanPin('Ab-12 cd!', 'numeric')).toBe('12');
+    expect(cleanPin('Ab-12 cd!', 'alphanumeric')).toBe('Ab12cd');
+    expect(cleanPin('1'.repeat(20), 'numeric')).toHaveLength(12);
+    expect(cleanPin('a'.repeat(20), 'alphanumeric')).toHaveLength(16);
   });
 });
 
@@ -83,9 +111,8 @@ describe('saveEntry', () => {
 
   it('refuses an invalid PIN and writes nothing', () => {
     const { db, calls } = fakeDb();
-    expect(() => saveEntry(db, { ...base, password: '12ab' })).toThrow(
-      '4 to 12 digits',
-    );
+    expect(() => saveEntry(db, { ...base, password: '12-ab' })).toThrow('4 to 12 digits');
+    expect(() => saveEntry(db, { ...base, password: '123' })).toThrow('4 to 12 digits');
     expect(calls).toHaveLength(0);
   });
 

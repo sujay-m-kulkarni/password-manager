@@ -36,6 +36,7 @@ export const HELP: Section[] = [
     title: 'Saving passwords and PINs',
     points: [
       'Tap + on the Vault tab. Choose Login for a username and password, or PIN for a phone, SIM, ATM or UPI PIN.',
+      'A PIN can be Numbers (4–12 digits, typed on the number pad) or Letters & numbers (4–16, for app passcodes). Letters keep their capitals.',
       'For a new password, tap Generate for a strong random one. The Generator tab makes one without saving it.',
       'Put entries in folders (Banking, Work, Email, Social) and star the ones you use most: they appear at the top.',
       'Add, rename, recolour or delete folders in Settings › Folders. Deleting a folder keeps its entries.',

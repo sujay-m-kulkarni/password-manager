@@ -53,7 +53,7 @@ export function EntryDetailScreen({ navigation, route }: Props) {
   return (
     <SafeAreaView style={s.root} edges={['bottom']}>
       <ScrollView contentContainerStyle={{ paddingBottom: 120 }}>
-        <SafeAreaView edges={['top']} style={[s.hero, { backgroundColor: c.solid }]}>
+        <SafeAreaView edges={['top']} style={[s.hero, { backgroundColor: c.soft }]}>
           <View style={s.heroBar}>
             <HeroButton label="Back" icon="chevron-left" text="Back" onPress={() => navigation.goBack()} />
             <View style={{ flexDirection: 'row', gap: 8 }}>
@@ -145,7 +145,7 @@ function SmallBtn({ label, text, onPress, muted }: { label: string; text: string
       accessibilityRole="button"
       accessibilityLabel={label}
       onPress={onPress}
-      style={[s.smallBtn, { backgroundColor: muted ? '#F1EEFB' : colors.primarySoft }]}>
+      style={[s.smallBtn, { backgroundColor: muted ? colors.raised : colors.primarySoft }]}>
       <Text style={[s.smallBtnText, { color: muted ? colors.inkSoft : colors.primary }]}>{text}</Text>
     </Pressable>
   );
@@ -154,7 +154,7 @@ function SmallBtn({ label, text, onPress, muted }: { label: string; text: string
 function HeroButton({ label, text, icon, onPress }: { label: string; text?: string; icon?: IconName; onPress: () => void }) {
   return (
     <Pressable accessibilityRole="button" accessibilityLabel={label} onPress={onPress} style={[s.heroBtn, s.heroBtnRow]}>
-      {icon && <Icon name={icon} size={18} color={colors.white} strokeWidth={2.5} />}
+      {icon && <Icon name={icon} size={18} color={colors.ink} strokeWidth={2.5} />}
       {text && <Text style={s.heroBtnText}>{text}</Text>}
     </Pressable>
   );
@@ -167,17 +167,17 @@ const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
   hero: { borderBottomLeftRadius: 32, borderBottomRightRadius: 32, paddingHorizontal: 12, paddingBottom: 28 },
   heroBar: { flexDirection: 'row', justifyContent: 'space-between', paddingTop: 8 },
-  heroBtn: { minWidth: 44, height: 44, paddingHorizontal: 12, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' },
+  heroBtn: { minWidth: 44, height: 44, paddingHorizontal: 12, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.08)', alignItems: 'center', justifyContent: 'center' },
   heroBtnRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  heroBtnText: { fontFamily: fonts.bold, fontSize: 16, color: colors.white },
-  editBtn: { height: 44, paddingHorizontal: 16, borderRadius: 14, backgroundColor: colors.white, justifyContent: 'center' },
+  heroBtnText: { fontFamily: fonts.bold, fontSize: 16, color: colors.ink },
+  editBtn: { height: 44, paddingHorizontal: 18, borderRadius: 22, backgroundColor: colors.surface, justifyContent: 'center' },
   editText: { fontFamily: fonts.bold, fontSize: 15 },
   heroBody: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 8, paddingTop: 16 },
-  bigInitial: { width: 60, height: 60, borderRadius: 18, backgroundColor: colors.white, alignItems: 'center', justifyContent: 'center' },
+  bigInitial: { width: 60, height: 60, borderRadius: 20, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center' },
   bigInitialText: { fontFamily: fonts.extrabold, fontSize: 26 },
-  heroTitle: { fontFamily: fonts.extrabold, fontSize: 24, color: colors.white },
+  heroTitle: { fontFamily: fonts.extrabold, fontSize: 24, color: colors.ink },
   folderPill: { alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 3, borderRadius: 10, backgroundColor: 'rgba(0,0,0,0.18)' },
-  folderPillText: { fontFamily: fonts.bold, fontSize: 12, color: colors.white },
+  folderPillText: { fontFamily: fonts.bold, fontSize: 12, color: colors.ink },
   body: { padding: 16, gap: 10 },
   card: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.surface, borderRadius: 16, paddingVertical: 12, paddingLeft: 16, paddingRight: 6 },
   cardLabel: { fontFamily: fonts.bold, fontSize: 12, color: colors.muted },
