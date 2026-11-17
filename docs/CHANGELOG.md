@@ -4,6 +4,10 @@ What's new in each release, newest first. The GitHub release notes are made from
 merged pull request (`app/scripts/release-notes.mjs`); this file keeps the whole history in one place and is updated
 in every PR.
 
+## 1.6.0
+
+- Removed the password generator (the Generator tab and the Generate button). Type or paste passwords; the strength bar still shows how strong they are.
+
 ## 1.5.0
 
 - Entry types replace folders: Banking, Investments, Social media, Email and Other, each with its own filter chip and colour. Your folders were turned into the matching types.

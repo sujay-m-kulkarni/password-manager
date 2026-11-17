@@ -7,7 +7,7 @@ export const colors = {
   bg: '#1E1F2B', // screen background
   surface: '#272938', // cards, inputs, tab bar
   raised: '#33354A', // things on cards: segmented control thumb, switch track
-  deep: '#16171F', // recessed panels: generated password, recovery code, toast
+  deep: '#16171F', // recessed panels: recovery code, toast
   ink: '#E9E8F2',
   inkSoft: '#C4C3D4',
   muted: '#A9A8BC',

@@ -8,7 +8,6 @@ import { CrashGate, ErrorBoundary } from './src/components/CrashReportNotice';
 import { SetupScreen } from './src/features/auth/SetupScreen';
 import { HelpScreen } from './src/features/help/HelpScreen';
 import { UnlockScreen } from './src/features/auth/UnlockScreen';
-import { GeneratorScreen } from './src/features/generator/GeneratorScreen';
 import { ChangePasswordScreen, RecoveryKeyScreen, RestoreScreen } from './src/features/settings/KeyScreens';
 import { SettingsScreen } from './src/features/settings/SettingsScreen';
 import { EditEntryScreen } from './src/features/vault/EditEntryScreen';
@@ -29,7 +28,7 @@ const navTheme = {
   colors: { ...DarkTheme.colors, background: colors.bg, card: colors.surface, text: colors.ink, primary: colors.primary, border: colors.border },
 };
 
-const TAB_ICON: Record<keyof TabParamList, IconName> = { Vault: 'vault', Generator: 'sparkle', Settings: 'settings' };
+const TAB_ICON: Record<keyof TabParamList, IconName> = { Vault: 'vault', Settings: 'settings' };
 
 function Tabs() {
   return (
@@ -43,7 +42,6 @@ function Tabs() {
         tabBarIcon: ({ color }) => <Icon name={TAB_ICON[route.name]} color={color} />,
       })}>
       <Tab.Screen name="Vault" component={VaultScreen} />
-      <Tab.Screen name="Generator" component={GeneratorScreen} />
       <Tab.Screen name="Settings" component={SettingsScreen} />
     </Tab.Navigator>
   );

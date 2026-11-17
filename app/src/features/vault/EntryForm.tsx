@@ -35,7 +35,6 @@ import { ENTRY_TYPES, parseFields, typeInfo, type EntryType, type TypeFields } f
 import { useDb } from '../../store/session';
 import { colors, folderColor, fonts } from '../../theme';
 import { estimateStrength } from '../../utils/strength';
-import { GeneratorPanel } from '../generator/GeneratorPanel';
 
 export type FormTab = 'login' | 'pins' | 'cards';
 
@@ -76,21 +75,16 @@ export function EntryForm({
   const [notes, setNotes] = useState(existing?.notes ?? '');
   const [favorite, setFav] = useState(!!existing?.favorite);
   const [showPw, setShowPw] = useState(false);
-  const [genOpen, setGenOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Android back: closes the generator sheet first, then cancels the edit.
+  // Android back cancels the edit.
   useEffect(() => {
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
-      if (genOpen) {
-        setGenOpen(false);
-      } else {
-        onCancel();
-      }
+      onCancel();
       return true;
     });
     return () => sub.remove();
-  }, [genOpen, onCancel]);
+  }, [onCancel]);
 
   const info = typeInfo(type);
   const showCards = info.cards;
@@ -185,7 +179,6 @@ export function EntryForm({
                     {password.length > 0 && <StrengthBar score={strength.score} label={strength.label} />}
                   </View>
                   <Button title={showPw ? 'Hide' : 'Show'} variant="soft" small onPress={() => setShowPw(v => !v)} />
-                  <Button title="Generate" small onPress={() => setGenOpen(true)} />
                 </View>
               </View>
               <Field
@@ -237,25 +230,6 @@ export function EntryForm({
         </ScrollView>
       </KeyboardAvoidingView>
 
-      {/* In-screen overlay, not <Modal>: a Modal is a separate window without FLAG_SECURE. */}
-      {genOpen && (
-        <View style={StyleSheet.absoluteFill}>
-          <Pressable style={s.scrim} accessibilityLabel="Close generator" onPress={() => setGenOpen(false)} />
-          <View style={s.sheet}>
-            <View style={s.handle} />
-            <Text style={s.sheetTitle}>Generate password</Text>
-            <GeneratorPanel
-              primaryAction={{
-                title: 'Use this password',
-                onPress: generated => {
-                  setPassword(generated);
-                  setGenOpen(false);
-                },
-              }}
-            />
-          </View>
-        </View>
-      )}
     </View>
   );
 }
@@ -502,10 +476,6 @@ const s = StyleSheet.create({
   switchOn: { backgroundColor: colors.primary },
   knob: { width: 22, height: 22, borderRadius: 11, backgroundColor: colors.ink },
   knobOn: { transform: [{ translateX: 20 }], backgroundColor: colors.onPrimary },
-  scrim: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)' },
-  sheet: { backgroundColor: colors.bg, borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 20, paddingBottom: 32, gap: 12 },
-  handle: { alignSelf: 'center', width: 40, height: 5, borderRadius: 3, backgroundColor: colors.border },
-  sheetTitle: { fontFamily: fonts.extrabold, fontSize: 20, color: colors.ink },
   tabs: { flexDirection: 'row', gap: 4, padding: 4, borderRadius: 24, backgroundColor: colors.surface },
   tab: { flex: 1, minHeight: 44, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
   tabOn: { backgroundColor: colors.primary },

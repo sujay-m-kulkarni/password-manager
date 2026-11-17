@@ -29,19 +29,18 @@ All colours live in `app/src/theme.ts`.
 2. **Unlock** — fingerprint circle on the dark ground, master password, lockout message. (Fingerprint button arrives with build step 7.)
 3. **Vault** — search, chips (All · Banking · Investments · Social media · Email · Other · **PINs**), list rows show the username and, for Banking, the number of cards, favourite tiles, list with Copy (PIN entries carry an amber PIN tag), clipboard countdown toast, + button (opens a PIN form when the PINs chip is on).
 4. **Entry detail** — read-only first; header in the type colour, show/hide/copy, type fields (account number, IFSC, customer ID / client ID, demat ID) with Copy, a Cards section (each card: Debit/Credit · network, number masked as •••• 1234 and the card PIN hidden until Show, expiry, name on card), Edit turns the same screen into the form with Save / Cancel, strength bar, website, notes, edit, favourite, delete. Each named PIN shows large, spaced digits (482 913) once shown; no strength bar for PINs.
-5. **Add/Edit form** (design H4) — used for a new entry and in place when editing: a **Type** choice, Title, then tabs **Login · PINs · Cards** (Cards for Banking) with a tick/count per filled part. Login: username, password with Generate (bottom sheet), website, type fields. PINs: any number of named PINs (suggested names UPI PIN, ATM PIN, MPIN, TPIN, Phone lock, SIM PIN), each Numbers (number pad, 4–12) or Letters & numbers (4–16). Cards: + Debit card / + Credit card (number with network detection and a typo check, expiry MM/YY, card PIN 4–6 digits, name on card; no CVV). An entry needs a title and at least one of password, PIN or card; then favourite, notes.
-6. **Generator tab** — same generator, with Copy.
+5. **Add/Edit form** (design H4) — used for a new entry and in place when editing: a **Type** choice, Title, then tabs **Login · PINs · Cards** (Cards for Banking) with a tick/count per filled part. Login: username, password with a strength bar, website, type fields. PINs: any number of named PINs (suggested names UPI PIN, ATM PIN, MPIN, TPIN, Phone lock, SIM PIN), each Numbers (number pad, 4–12) or Letters & numbers (4–16). Cards: + Debit card / + Credit card (number with network detection and a typo check, expiry MM/YY, card PIN 4–6 digits, name on card; no CVV). An entry needs a title and at least one of password, PIN or card; then favourite, notes.
 7. **Settings tab** — backup card (last backup, Export), unlock with fingerprint (+ phone screen lock), auto-lock, clipboard timer, change master password, recovery key, export/restore, lock now.
 8. **Setup** is three steps: master password → recovery key (shown once, "I've written it down") → fingerprint. "New phone? Restore from a backup" starts from a backup file instead.
 9. **Unlock** offers the fingerprint straight away (the circle in the hero is the fingerprint button), the master password weekly, and "Forgot password? Use recovery key", followed by setting a new master password.
 
-Bottom tabs: Vault · Generator · Settings.
+Bottom tabs: Vault · Settings (the password generator was removed in 1.6.0).
 
 ## Deliberate differences from the mockups
 
-- Icons are text glyphs for now; no icon or SVG package, to keep dependencies running next to the vault to a minimum.
-- The generator sheet is an in-screen overlay rather than an Android dialog, because a dialog window doesn't inherit
-  the screenshot block (`FLAG_SECURE`).
+- Icons are simple vector line drawings (`react-native-svg`, since 1.2.0) rather than an icon font or package.
+- Nothing secret is shown in an Android dialog (`<Modal>`): a dialog window doesn't inherit the screenshot block
+  (`FLAG_SECURE`), so overlays are drawn inside the screen.
 
 ## App icon
 
