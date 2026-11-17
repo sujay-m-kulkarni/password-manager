@@ -1,6 +1,6 @@
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { FlatList, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ClipboardToast } from '../../components/ClipboardToast';
@@ -20,6 +20,7 @@ import { useDb, useSession } from '../../store/session';
 import { colors, folderColor, fonts } from '../../theme';
 import type { RootStackParamList } from '../../navigation/types';
 import { Icon } from '../../components/Icon';
+import { step } from '../../utils/steps';
 
 export function VaultScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
@@ -30,6 +31,7 @@ export function VaultScreen() {
   const [search, setSearch] = useState('');
   const [chosenFolder, setFolderId] = useState<number | null>(null);
   const [pinsOnly, setPinsOnly] = useState(false);
+  useState(() => step('vault list: reading entries')); // once, before the first queries
 
   const folders = useMemo(() => listFolders(db), [db, dataVersion]); // eslint-disable-line react-hooks/exhaustive-deps
   // A folder deleted in Settings while selected here falls back to All.
@@ -42,6 +44,9 @@ export function VaultScreen() {
   const browsing = !search.trim() && folderId == null && !pinsOnly;
   const favorites = browsing ? items.filter(i => i.favorite) : [];
   const remind = useMemo(() => backupDue(db), [db, dataVersion]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    step(`vault list shown: ${total} entries, ${favorites.length} favourites, ${folders.length} folders`);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const { exportNow, busy: exporting } = useExportBackup();
 
   const copy = (id: number) => {

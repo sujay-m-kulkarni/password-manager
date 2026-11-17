@@ -12,6 +12,7 @@
  */
 import type { DB } from '@op-engineering/op-sqlite';
 import { deleteVaultFile, openMeta, openVault } from '../db/database';
+import { step } from '../utils/steps';
 import {
   Buffer,
   deriveKek,
@@ -196,12 +197,16 @@ export async function unlockWithPassword(masterPassword: string): Promise<Unlock
   if (!header) {
     throw new Error('No vault found.');
   }
+  step(`password: deriving key (${header.kdf.memKiB / 1024} MB × ${header.kdf.passes})`);
   const dek = await unwrapWithPassword(header, masterPassword);
+  step(dek ? 'password: correct' : 'password: wrong');
   if (!dek) {
     return { ok: false };
   }
   try {
+    step('password: opening encrypted database');
     const db = openVault(dek);
+    step('password: database open');
     notePasswordUnlock();
     return { ok: true, db, dek };
   } catch (e) {
@@ -229,7 +234,10 @@ export async function unlockWithRecoveryKey(code: string): Promise<UnlockResult>
 
 /** Fingerprint / phone-lock unlock: the Keystore released the data key itself. */
 export function unlockWithDek(dek: Buffer): DB {
-  return openVault(dek);
+  step('fingerprint: opening encrypted database');
+  const db = openVault(dek);
+  step('fingerprint: database open');
+  return db;
 }
 
 export async function unwrapWithPassword(header: Pick<Header, 'kdf' | 'pw'>, password: string): Promise<Buffer | null> {

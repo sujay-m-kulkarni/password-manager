@@ -20,6 +20,7 @@ import type { RootStackParamList } from '../../navigation/types';
 import { useSession } from '../../store/session';
 import { colors, fonts } from '../../theme';
 import { Icon } from '../../components/Icon';
+import { step } from '../../utils/steps';
 
 type Mode = 'password' | 'recovery' | { newPassword: { db: DB; dek: Buffer } };
 
@@ -73,6 +74,7 @@ export function UnlockScreen() {
 
   // Offer the fingerprint straight away, as other password managers do.
   useEffect(() => {
+    step(`unlock screen shown (fingerprint ${bio.enabled ? 'on' : 'off'})`);
     (async () => {
       const w = await refreshWait();
       if (!autoPrompted.current && bio.enabled && !bio.due && w === 0) {

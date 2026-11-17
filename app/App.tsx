@@ -4,7 +4,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import React, { useEffect } from 'react';
 import { ActivityIndicator, StatusBar, StyleSheet, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { CrashReportNotice } from './src/components/CrashReportNotice';
+import { CrashGate, ErrorBoundary } from './src/components/CrashReportNotice';
 import { SetupScreen } from './src/features/auth/SetupScreen';
 import { HelpScreen } from './src/features/help/HelpScreen';
 import { UnlockScreen } from './src/features/auth/UnlockScreen';
@@ -50,6 +50,18 @@ function Tabs() {
 }
 
 export default function App() {
+  return (
+    <SafeAreaProvider>
+      <CrashGate>
+        <ErrorBoundary>
+          <VaultApp />
+        </ErrorBoundary>
+      </CrashGate>
+    </SafeAreaProvider>
+  );
+}
+
+function VaultApp() {
   const status = useSession(s => s.status);
   const init = useSession(s => s.init);
 
@@ -91,7 +103,6 @@ export default function App() {
           </Stack.Navigator>
         </NavigationContainer>
       </AutoLock>
-      <CrashReportNotice />
     </SafeAreaProvider>
   );
 }
