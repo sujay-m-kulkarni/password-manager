@@ -94,7 +94,9 @@ export async function getDek(): Promise<BiometricUnlock> {
     if (/cancel|negative|user/i.test(msg)) {
       return { kind: 'cancelled' };
     }
-    if (/invalidat|permanently|not.*found|KeyPermanentlyInvalidated|no key/i.test(msg)) {
+    // Also after reinstalling with "Keep app data": Android deletes an app's keys on uninstall,
+    // so the stored copy can no longer be decrypted.
+    if (/invalidat|permanently|not.*found|KeyPermanentlyInvalidated|no key|decrypt|keystore|key.*(missing|exist)/i.test(msg)) {
       await disable();
       return {
         kind: 'unavailable',

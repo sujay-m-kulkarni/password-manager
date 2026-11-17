@@ -1,11 +1,18 @@
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import React, { useEffect, useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Banner, Button, SectionLabel } from '../../components/ui';
 import type { RootStackParamList } from '../../navigation/types';
 import { backupDue, lastBackupAt } from '../../security/backup';
+import {
+  KEEP,
+  autoBackupState,
+  chooseAutoBackupFolder,
+  runAutoBackup,
+  turnOffAutoBackup,
+} from '../../security/autoBackup';
 import * as Biometric from '../../security/biometric';
 import { hasRecoveryKey, unlockCost } from '../../security/keyHierarchy';
 import { useDb, useSession } from '../../store/session';
@@ -43,18 +50,63 @@ export function SettingsScreen() {
   const [bioError, setBioError] = useState<string | null>(null);
   const [recovery, setRecovery] = useState(hasRecoveryKey());
   const [cost, setCost] = useState(unlockCost());
+  const [auto, setAuto] = useState(() => autoBackupState(db));
+  const [autoBusy, setAutoBusy] = useState(false);
+  const [tick, setTick] = useState(0); // re-reads the backup times without marking data as changed
+  const refreshAuto = () => setAuto(autoBackupState(db));
+
+  const chooseFolder = async () => {
+    if (!dek) {
+      return;
+    }
+    setAutoBusy(true);
+    try {
+      await withAutoLockPaused(() => chooseAutoBackupFolder(db, dek));
+    } catch (e) {
+      Alert.alert('Folder not set', e instanceof Error ? e.message : 'Something went wrong.');
+    } finally {
+      refreshAuto();
+      setTick(t => t + 1);
+      setAutoBusy(false);
+    }
+  };
+
+  const backUpNow = async () => {
+    if (!dek) {
+      return;
+    }
+    setAutoBusy(true);
+    await runAutoBackup(db, dek);
+    refreshAuto();
+    setTick(t => t + 1);
+    setAutoBusy(false);
+  };
+
+  const turnOff = () =>
+    Alert.alert('Turn off automatic backup?', 'Backups already in the folder stay there.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Turn off',
+        style: 'destructive',
+        onPress: async () => {
+          await turnOffAutoBackup(db);
+          refreshAuto();
+        },
+      },
+    ]);
 
   useEffect(() => {
     Biometric.support().then(setSupport);
     const unsub = navigation.addListener('focus', () => {
       setRecovery(hasRecoveryKey());
+      setAuto(autoBackupState(db));
       setCost(unlockCost());
     });
     return unsub;
-  }, [navigation]);
+  }, [navigation, db]);
 
-  const last = useMemo(() => lastBackupAt(db), [db, dataVersion]); // eslint-disable-line react-hooks/exhaustive-deps
-  const due = useMemo(() => backupDue(db), [db, dataVersion]); // eslint-disable-line react-hooks/exhaustive-deps
+  const last = useMemo(() => lastBackupAt(db), [db, dataVersion, tick]); // eslint-disable-line react-hooks/exhaustive-deps
+  const due = useMemo(() => backupDue(db), [db, dataVersion, tick]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const setBiometric = async (on: boolean, withPhoneLock = phoneLock) => {
     if (!dek) {
@@ -163,6 +215,33 @@ export function SettingsScreen() {
         {!recovery && <Banner tone="warn" text="No recovery key yet. Without one, a forgotten master password can't be undone." />}
 
         <SectionLabel>Backup</SectionLabel>
+        <View style={s.card}>
+          <Text style={s.rowLabel}>Automatic backup</Text>
+          {auto ? (
+            <>
+              <Text style={s.hint}>
+                Saves an encrypted backup to “{auto.folder}” whenever your entries change, keeping the newest {KEEP}.
+                {'\n'}
+                {auto.lastAt ? `Last saved ${ago(auto.lastAt)} at ${new Date(auto.lastAt).toLocaleTimeString()}.` : 'Not saved yet.'}
+              </Text>
+              {auto.error && <Banner text={auto.error} />}
+              <View style={s.autoActions}>
+                <Button title="Back up now" small onPress={backUpNow} loading={autoBusy} />
+                <Button title="Change folder" small variant="soft" onPress={chooseFolder} disabled={autoBusy} />
+                <Button title="Turn off" small variant="ghost" onPress={turnOff} disabled={autoBusy} />
+              </View>
+            </>
+          ) : (
+            <>
+              <Text style={s.hint}>
+                Choose a folder once (for example Downloads, an SD card, or a Google Drive folder). Vault then saves an
+                encrypted backup there by itself whenever your entries change. Those files stay even if Vault is
+                uninstalled.
+              </Text>
+              <Button title="Choose backup folder" small onPress={chooseFolder} loading={autoBusy} style={{ alignSelf: 'flex-start' }} />
+            </>
+          )}
+        </View>
         <View style={s.list}>
           <NavRow label="Export encrypted backup" onPress={exportNow} />
           <NavRow label="Restore from a backup" onPress={() => navigation.navigate('Restore')} />
@@ -287,6 +366,7 @@ const s = StyleSheet.create({
     borderBottomColor: colors.divider,
   },
   navValue: { fontFamily: fonts.bold, fontSize: 14 },
+  autoActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   segment: { flexDirection: 'row', backgroundColor: colors.bg, borderRadius: 14, padding: 4, gap: 4 },
   segBtn: { flex: 1, height: 44, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
   segBtnOn: { backgroundColor: colors.primary },

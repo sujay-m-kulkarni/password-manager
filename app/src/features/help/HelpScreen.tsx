@@ -57,6 +57,8 @@ export const HELP: Section[] = [
     points: [
       'Vault never goes online, so your passwords exist only on this phone until you export a backup.',
       'Settings › Export backup saves an encrypted file. Choose Google Drive or another place off the phone.',
+      'Automatic backup: in Settings › Backup choose a folder once. Vault then saves an encrypted backup there whenever your entries change, keeping the newest 5. The folder is not part of Vault, so the files stay if Vault is uninstalled.',
+      'Uninstalling Vault deletes the vault unless you tick “Keep app data” in Android\'s uninstall dialog (uninstall from Settings › Apps to see it). Reinstalling Vault then opens the same vault; turn fingerprint unlock on again.',
       'A backup opens with the master password it was made with, or with your recovery key.',
       'Vault reminds you when there is no backup, or when you have made changes since a backup more than a month old.',
       'To move to a new phone: install Vault there, tap “Restore from a backup” and pick the file.',
