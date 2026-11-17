@@ -39,9 +39,9 @@ export function ClipboardToast({ bottom = 24, right = 16 }: { bottom?: number; r
 }
 
 const s = StyleSheet.create({
-  toast: { position: 'absolute', left: 16, backgroundColor: colors.ink, borderRadius: 14, padding: 12, gap: 8 },
+  toast: { position: 'absolute', left: 16, backgroundColor: colors.deep, borderRadius: 18, borderWidth: 1, borderColor: colors.border, padding: 12, gap: 8 },
   row: { flexDirection: 'row', justifyContent: 'space-between' },
-  text: { fontFamily: fonts.semibold, fontSize: 13, color: colors.white },
+  text: { fontFamily: fonts.semibold, fontSize: 13, color: colors.ink },
   track: { height: 4, borderRadius: 2, backgroundColor: colors.inkSoft },
   fill: { height: 4, borderRadius: 2, backgroundColor: colors.warn },
 });

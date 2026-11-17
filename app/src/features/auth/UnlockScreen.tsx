@@ -146,8 +146,6 @@ export function UnlockScreen() {
       <KeyboardAvoidingView style={{ flex: 1 }} behavior="height">
         <ScrollView contentContainerStyle={{ flexGrow: 1 }} keyboardShouldPersistTaps="handled">
           <View style={s.hero}>
-            <View style={[s.blob, s.blobPink]} />
-            <View style={[s.blob, s.blobYellow]} />
             <Pressable
               accessibilityRole="button"
               accessibilityLabel={showBio ? 'Unlock with fingerprint' : 'Vault is locked'}
@@ -212,29 +210,27 @@ function formatWait(ms: number) {
 const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
   hero: {
-    height: 340,
-    backgroundColor: colors.primary,
-    borderBottomLeftRadius: 36,
-    borderBottomRightRadius: 36,
+    height: 320,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 10,
     overflow: 'hidden',
   },
-  blob: { position: 'absolute', opacity: 0.35 },
-  blobPink: { width: 220, height: 220, borderRadius: 110, backgroundColor: '#FF7AB6', top: -60, right: -70 },
-  blobYellow: { width: 160, height: 160, borderRadius: 80, backgroundColor: '#FFC145', bottom: -50, left: -40 },
   lockCircle: {
-    width: 104,
-    height: 104,
-    borderRadius: 52,
-    backgroundColor: colors.white,
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: colors.surface,
+    shadowColor: colors.primary,
+    shadowOpacity: 0.25,
+    shadowRadius: 24,
+    elevation: 6,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 8,
   },
-  heroTitle: { fontFamily: fonts.extrabold, fontSize: 26, color: colors.white },
-  heroSub: { fontFamily: fonts.regular, fontSize: 15, color: '#EDE8FF', textAlign: 'center', paddingHorizontal: 24 },
+  heroTitle: { fontFamily: fonts.extrabold, fontSize: 26, color: colors.ink },
+  heroSub: { fontFamily: fonts.regular, fontSize: 15, color: colors.muted, textAlign: 'center', paddingHorizontal: 24 },
   form: { flex: 1, padding: 24, gap: 12 },
   link: { minHeight: 44, justifyContent: 'center', alignItems: 'center' },
   linkText: { fontFamily: fonts.bold, fontSize: 15, color: colors.primary },

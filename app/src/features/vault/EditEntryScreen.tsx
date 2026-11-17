@@ -351,7 +351,7 @@ function FolderChip({
     : color
     ? c.soft
     : colors.surface;
-  const fg = active ? colors.white : color ? c.ink : colors.inkSoft;
+  const fg = active ? colors.onPrimary : color ? c.ink : colors.inkSoft;
   return (
     <Pressable
       accessibilityRole="radio"
@@ -399,7 +399,7 @@ const s = StyleSheet.create({
     width: 48,
     height: 28,
     borderRadius: 14,
-    backgroundColor: '#D9D3F5',
+    backgroundColor: colors.raised,
     padding: 3,
   },
   switchOn: { backgroundColor: colors.primary },
@@ -407,10 +407,10 @@ const s = StyleSheet.create({
     width: 22,
     height: 22,
     borderRadius: 11,
-    backgroundColor: colors.white,
+    backgroundColor: colors.ink,
   },
-  knobOn: { transform: [{ translateX: 20 }] },
-  scrim: { flex: 1, backgroundColor: 'rgba(27,21,48,0.45)' },
+  knobOn: { transform: [{ translateX: 20 }], backgroundColor: colors.onPrimary },
+  scrim: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)' },
   sheet: {
     backgroundColor: colors.bg,
     borderTopLeftRadius: 28,
@@ -440,9 +440,9 @@ const s = StyleSheet.create({
   },
   kindBtnOn: { backgroundColor: colors.primary, borderColor: colors.primary },
   kindLabel: { fontFamily: fonts.bold, fontSize: 16, color: colors.ink },
-  kindLabelOn: { color: colors.white },
+  kindLabelOn: { color: colors.onPrimary },
   kindHint: { fontFamily: fonts.regular, fontSize: 12, color: colors.muted },
-  kindHintOn: { color: '#EDE8FF' },
+  kindHintOn: { color: colors.onPrimary },
   pinHint: {
     flex: 1,
     fontFamily: fonts.semibold,

@@ -70,7 +70,7 @@ export function VaultScreen() {
                   key={f.id}
                   accessibilityRole="button"
                   onPress={() => navigation.navigate('Entry', { id: f.id })}
-                  style={[s.favTile, { backgroundColor: c.solid }]}>
+                  style={[s.favTile, { backgroundColor: c.soft }]}>
                   <View style={s.favTop}>
                     <View style={s.favInitial}>
                       <Text style={[s.favInitialText, { color: c.ink }]}>{initial(f.title)}</Text>
@@ -174,7 +174,7 @@ export function VaultScreen() {
         accessibilityLabel="Add password"
         onPress={() => navigation.navigate('Edit', { folderId, kind: pinsOnly ? 'pin' : 'login' })}
         style={s.fab}>
-        <Icon name="plus" size={28} color={colors.white} strokeWidth={2.5} />
+        <Icon name="plus" size={28} color={colors.onPrimary} strokeWidth={2.5} />
       </Pressable>
     </SafeAreaView>
   );
@@ -216,7 +216,7 @@ function Row({ item, onOpen, onCopy }: { item: EntryListItem; onOpen: () => void
 function Chip({ label, color, active, onPress }: { label: string; color?: string; active: boolean; onPress: () => void }) {
   const c = folderColor(color);
   const bg = active ? (color ? c.solid : colors.primary) : color ? c.soft : colors.surface;
-  const fg = active ? colors.white : color ? c.ink : colors.inkSoft;
+  const fg = active ? colors.onPrimary : color ? c.ink : colors.inkSoft;
   return (
     <Pressable
       accessibilityRole="button"
@@ -264,10 +264,10 @@ const s = StyleSheet.create({
   favGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   favTile: { width: '48%', flexGrow: 1, borderRadius: 18, padding: 14, gap: 4 },
   favTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
-  favInitial: { width: 36, height: 36, borderRadius: 10, backgroundColor: colors.white, alignItems: 'center', justifyContent: 'center' },
+  favInitial: { width: 36, height: 36, borderRadius: 12, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center' },
   favInitialText: { fontFamily: fonts.extrabold, fontSize: 16 },
-  favTitle: { fontFamily: fonts.bold, fontSize: 15, color: colors.white },
-  favUser: { fontFamily: fonts.regular, fontSize: 13, color: '#F1EEFF' },
+  favTitle: { fontFamily: fonts.bold, fontSize: 15, color: colors.ink },
+  favUser: { fontFamily: fonts.regular, fontSize: 13, color: colors.inkSoft },
   row: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surface, borderRadius: 16, paddingLeft: 12, paddingRight: 6 },
   rowMain: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10 },
   avatar: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },

@@ -15,14 +15,14 @@ import {
   type GeneratorOptions,
 } from '../../utils/generator';
 
-const KIND_COLOR = { letter: colors.white, digit: '#7DD3FC', symbol: colors.warn };
+const KIND_COLOR = { letter: colors.ink, digit: '#9FD0E6', symbol: colors.warn };
 const LENGTH_STEPS = [12, 16, 20, 24, 32];
 
 const TOGGLES: { key: 'upper' | 'lower' | 'digits' | 'symbols'; label: string; bg: string; fg: string }[] = [
-  { key: 'upper', label: 'A–Z', bg: '#E3ECFF', fg: '#1E4FC2' },
-  { key: 'lower', label: 'a–z', bg: '#DDF5E5', fg: '#166534' },
-  { key: 'digits', label: '0–9', bg: '#E0F2FE', fg: '#075985' },
-  { key: 'symbols', label: '!@#$', bg: '#FFF4D6', fg: '#92400E' },
+  { key: 'upper', label: 'A–Z', bg: '#2A3348', fg: '#A9C0E8' },
+  { key: 'lower', label: 'a–z', bg: '#26362C', fg: '#A8D4B5' },
+  { key: 'digits', label: '0–9', bg: '#233540', fg: '#9FD0E6' },
+  { key: 'symbols', label: '!@#$', bg: '#3A3125', fg: '#E8C79E' },
 ];
 
 /** Score for a generated password, from its true entropy (it's uniformly random). */
@@ -81,7 +81,7 @@ export function GeneratorPanel({
           ))}
         </Text>
         <Pressable accessibilityRole="button" accessibilityLabel="Generate another" onPress={() => regenerate(opts)} style={s.again}>
-          <Icon name="refresh" size={22} color={colors.white} />
+          <Icon name="refresh" size={22} color={colors.onPrimary} />
         </Pressable>
       </View>
 
@@ -159,7 +159,7 @@ export function GeneratorPanel({
 
 const s = StyleSheet.create({
   wrap: { gap: 16 },
-  display: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: colors.ink, borderRadius: 16, padding: 16 },
+  display: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: colors.deep, borderRadius: 20, padding: 16 },
   pw: { flex: 1, fontFamily: 'monospace', fontSize: 18, lineHeight: 26 },
   again: { width: 44, height: 44, borderRadius: 12, backgroundColor: colors.inkSoft, alignItems: 'center', justifyContent: 'center' },
   lenHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
@@ -171,14 +171,14 @@ const s = StyleSheet.create({
   quickBtn: { flex: 1, height: 40, borderRadius: 12, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center' },
   quickOn: { backgroundColor: colors.primary },
   quickText: { fontFamily: fonts.bold, fontSize: 14, color: colors.inkSoft },
-  quickTextOn: { color: colors.white },
+  quickTextOn: { color: colors.onPrimary },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   toggle: { width: '48%', flexGrow: 1, height: 48, borderRadius: 14, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
   toggleText: { fontFamily: fonts.bold, fontSize: 15 },
   switchRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 48 },
   switchLabel: { fontFamily: fonts.semibold, fontSize: 14, color: colors.inkSoft, flex: 1 },
-  switch: { width: 48, height: 28, borderRadius: 14, backgroundColor: '#D9D3F5', padding: 3 },
+  switch: { width: 48, height: 28, borderRadius: 14, backgroundColor: colors.raised, padding: 3 },
   switchOn: { backgroundColor: colors.primary },
-  knob: { width: 22, height: 22, borderRadius: 11, backgroundColor: colors.white },
-  knobOn: { transform: [{ translateX: 20 }] },
+  knob: { width: 22, height: 22, borderRadius: 11, backgroundColor: colors.ink },
+  knobOn: { transform: [{ translateX: 20 }], backgroundColor: colors.onPrimary },
 });

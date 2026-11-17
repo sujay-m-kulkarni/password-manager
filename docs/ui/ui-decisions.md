@@ -1,18 +1,24 @@
 # UI decisions
 
-**Chosen direction: Option D — "Full set, colourful"** (chosen 1 Nov 2026 from options A–D).
+**Current direction: Option G — "Dusk Soft Dark"** (chosen 17 Nov 2026 from the softer options E–G; ships in 1.3.0).
+It keeps Option D's screens and layout and changes the look: soft charcoal ground, pale lavender accent with dark
+text on it, muted pastel folder colours on dark tints, rounder pill-shaped buttons and fields.
 
-The mockups live on the design canvas "Password Manager UI Options" in Claude; Option D's six screens are clickable there.
+Earlier: Option D — "Full set, colourful" (chosen 1 Nov 2026 from options A–D; used up to 1.2.x).
+
+The mockups live on the design canvas "Password Manager UI Options" in Claude (G-Unlock, G-Vault, G-Settings).
 
 ## Visual style
 
 | Token | Value |
 |---|---|
-| Font | Plus Jakarta Sans (400, 600, 700, 800), bundled in `app/android/app/src/main/assets/fonts` |
-| Primary | `#5B3DF5` violet |
-| Background | `#F7F5FF` |
-| Ink | `#1B1530` |
-| Folder colours | Banking blue `#2563EB` · Work orange `#C2410C` · Email pink `#DB2777` · Social green `#15803D` |
+| Font | Plus Jakarta Sans (400, 600, 700, 800), bundled in `app/android/app/src/main/assets/fonts` (the mockup used Nunito; kept the bundled font) |
+| Accent | `#A99CF0` lavender, text on it `#1E1F2B` |
+| Background · card · raised | `#1E1F2B` · `#272938` · `#33354A` |
+| Text · muted | `#E9E8F2` · `#A9A8BC` |
+| Folder colours (pastel on tint) | blue `#A9C0E8`/`#2A3348` · orange `#EBB896`/`#3A2C24` · pink `#E8B3CB`/`#3A2A35` · green `#A8D4B5`/`#26362C` · sky `#9FD0E6`/`#233540` · violet `#C9C0F7`/`#33354A` |
+
+Every text colour has at least 5:1 contrast on the background it sits on.
 
 Each folder keeps its colour everywhere: chips, list icons, favourite tiles and the entry header.
 All colours live in `app/src/theme.ts`.
@@ -20,7 +26,7 @@ All colours live in `app/src/theme.ts`.
 ## Screens
 
 1. **Setup** — master password, strength meter, rule: 12+ characters or 4+ words.
-2. **Unlock** — violet hero, master password, lockout message. (Fingerprint button arrives with build step 7.)
+2. **Unlock** — fingerprint circle on the dark ground, master password, lockout message. (Fingerprint button arrives with build step 7.)
 3. **Vault** — search, chips (All · **PINs** · folders), favourite tiles, list with Copy (PIN entries carry an amber PIN tag), clipboard countdown toast, + button (opens a PIN form when the PINs chip is on).
 4. **Entry detail** — header in the folder colour, show/hide/copy, strength bar, website, notes, edit, favourite, delete. A PIN shows large, spaced digits (482 913) and no strength bar.
 5. **Add/Edit** — a **Login / PIN** choice when adding. Login: form with a Generate button that opens the generator as a bottom sheet. PIN: title, a digits-only field on the number keypad (4–12 digits, with a running count), folder, favourite, notes.

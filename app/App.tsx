@@ -1,5 +1,5 @@
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
+import { NavigationContainer, DarkTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import React, { useEffect } from 'react';
 import { ActivityIndicator, StatusBar, StyleSheet, View } from 'react-native';
@@ -24,7 +24,10 @@ import { Icon, type IconName } from './src/components/Icon';
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator<TabParamList>();
 
-const navTheme = { ...DefaultTheme, colors: { ...DefaultTheme.colors, background: colors.bg } };
+const navTheme = {
+  ...DarkTheme,
+  colors: { ...DarkTheme.colors, background: colors.bg, card: colors.surface, text: colors.ink, primary: colors.primary, border: colors.border },
+};
 
 const TAB_ICON: Record<keyof TabParamList, IconName> = { Vault: 'vault', Generator: 'sparkle', Settings: 'settings' };
 
@@ -64,7 +67,7 @@ export default function App() {
 
   return (
     <SafeAreaProvider>
-      <StatusBar barStyle="dark-content" />
+      <StatusBar barStyle="light-content" />
       <AutoLock>
         <NavigationContainer theme={navTheme}>
           <Stack.Navigator screenOptions={{ headerShown: false, animation: 'slide_from_right' }}>
@@ -95,6 +98,6 @@ export default function App() {
 
 const styles = StyleSheet.create({
   loading: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.bg },
-  tabBar: { backgroundColor: colors.surface, borderTopColor: '#E4DFF5', height: 68, paddingTop: 6 },
+  tabBar: { backgroundColor: colors.surface, borderTopColor: colors.border, height: 68, paddingTop: 6 },
   tabLabel: { fontFamily: fonts.bold, fontSize: 12 },
 });

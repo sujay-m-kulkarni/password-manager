@@ -4,6 +4,11 @@ What's new in each release, newest first. The GitHub release notes are made from
 merged pull request (`app/scripts/release-notes.mjs`); this file keeps the whole history in one place and is updated
 in every PR.
 
+## 1.3.0
+
+- New softer, dark look ("Dusk"): charcoal background, lavender buttons, pastel folder colours and rounder shapes.
+- No white flash when the app opens.
+
 ## 1.2.0
 
 - Manage folders: add, rename, recolour and delete them (Settings › Folders). Entries in a deleted folder are kept, without a folder.

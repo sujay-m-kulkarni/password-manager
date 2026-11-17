@@ -16,12 +16,12 @@ import { colors, fonts, radius } from '../theme';
 type Variant = 'primary' | 'dark' | 'soft' | 'danger' | 'ghost' | 'white';
 
 const variantStyle: Record<Variant, { bg: string; fg: string }> = {
-  primary: { bg: colors.primary, fg: colors.white },
-  dark: { bg: colors.ink, fg: colors.white },
+  primary: { bg: colors.primary, fg: colors.onPrimary },
+  dark: { bg: colors.primary, fg: colors.onPrimary }, // the main action; same as primary in the dark theme
   soft: { bg: colors.primarySoft, fg: colors.primary },
   danger: { bg: colors.dangerSoft, fg: colors.danger },
   ghost: { bg: 'transparent', fg: colors.inkSoft },
-  white: { bg: colors.white, fg: colors.ink },
+  white: { bg: colors.surface, fg: colors.ink },
 };
 
 export function Button({
@@ -102,13 +102,13 @@ export const secretInputProps: TextInputProps = {
 };
 
 export function StrengthBar({ score, label }: { score: number; label: string }) {
-  const segColors = ['#E5484D', '#F59E0B', '#16A34A', '#16A34A'];
-  const textColor = score >= 3 ? colors.success : score === 2 ? '#B45309' : colors.danger;
+  const segColors = [colors.danger, colors.warn, colors.success, colors.success];
+  const textColor = score >= 3 ? colors.success : score === 2 ? colors.warn : colors.danger;
   return (
     <View style={{ gap: 6 }}>
       <View style={styles.strengthRow}>
         {segColors.map((c, i) => (
-          <View key={i} style={[styles.strengthSeg, { backgroundColor: i < score ? c : '#DDD8EE' }]} />
+          <View key={i} style={[styles.strengthSeg, { backgroundColor: i < score ? c : colors.raised }]} />
         ))}
       </View>
       <Text style={[styles.strengthLabel, { color: textColor }]}>{label}</Text>
@@ -138,7 +138,7 @@ export const styles = StyleSheet.create({
   label: { fontFamily: fonts.semibold, fontSize: 13, color: colors.inkSoft },
   input: {
     minHeight: 52,
-    borderWidth: 1.5,
+    borderWidth: 1,
     borderColor: colors.border,
     borderRadius: radius.md,
     backgroundColor: colors.surface,

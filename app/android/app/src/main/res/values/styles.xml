@@ -1,9 +1,13 @@
 <resources>
 
+    <color name="vault_bg">#1E1F2B</color>
+
     <!-- Base application theme. -->
     <style name="AppTheme" parent="Theme.AppCompat.DayNight.NoActionBar">
         <!-- Customize your theme here. -->
         <item name="android:editTextBackground">@drawable/rn_edit_text_material</item>
+        <!-- Dusk theme: dark window from the first frame (no white flash while JavaScript loads). -->
+        <item name="android:windowBackground">@color/vault_bg</item>
     </style>
 
 </resources>
