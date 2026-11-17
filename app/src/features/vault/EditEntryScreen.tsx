@@ -93,7 +93,7 @@ export function EditEntryScreen({ navigation, route }: Props) {
 
   const onSave = () => {
     try {
-      const id = saveEntry(
+      saveEntry(
         db,
         {
           kind,
@@ -108,11 +108,8 @@ export function EditEntryScreen({ navigation, route }: Props) {
         editingId,
       );
       touchData();
-      if (editingId != null) {
-        navigation.goBack();
-      } else {
-        navigation.replace('Entry', { id });
-      }
+      // Back to the list of entries, new or edited, also when editing was opened from the entry's page.
+      navigation.popTo('Tabs', { screen: 'Vault' });
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Could not save.');
     }
