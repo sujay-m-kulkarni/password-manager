@@ -163,7 +163,7 @@ test('the guide opens from the unlock screen, without unlocking', async () => {
   });
 });
 
-test('saving an entry returns to the list, for new and edited entries', async () => {
+test('a new entry returns to the list; an edited one stays on its page, read-only', async () => {
   let r!: ReactTestRenderer.ReactTestRenderer;
   await act(async () => {
     r = ReactTestRenderer.create(<App />);
@@ -220,10 +220,82 @@ test('saving an entry returns to the list, for new and edited entries', async ()
     r.root.findAllByType(TextInput).find(i => i.props.accessibilityLabel === 'Title')!.props.onChangeText('Netflix family');
   });
   await pressButton(r, 'Save');
+  // Editing happens in place: after saving, the same entry is shown read-only again.
   t = textOf(r);
-  expect(t).toContain('My Vault');
   expect(t).toContain('Netflix family');
-  expect(t).not.toContain('Delete entry');
+  expect(t).toContain('Delete entry');
+  expect(r.root.findAllByType(TextInput).filter(i => i.props.accessibilityLabel === 'Title')).toHaveLength(0);
+
+  // Cancel leaves it unchanged.
+  await pressButton(r, 'Edit');
+  await act(async () => {
+    r.root.findAllByType(TextInput).find(i => i.props.accessibilityLabel === 'Title')!.props.onChangeText('Changed');
+  });
+  await pressButton(r, 'Cancel');
+  expect(textOf(r)).toContain('Netflix family');
+  expect(textOf(r)).not.toContain('Changed');
+
+  await act(async () => {
+    r.unmount();
+    await wait(50);
+  });
+});
+
+test('a Banking entry with a debit card: read-only first, card hidden until Show', async () => {
+  let r!: ReactTestRenderer.ReactTestRenderer;
+  await act(async () => {
+    r = ReactTestRenderer.create(<App />);
+    await wait(50);
+  });
+  await act(async () => {
+    r.root.findAllByType(TextInput)[0].props.onChangeText('seven quiet blue lanterns');
+  });
+  await pressButton(r, 'Unlock');
+
+  const input = (label: string) =>
+    r.root.findAllByType(TextInput).find(i => String(i.props.accessibilityLabel ?? '').startsWith(label))!;
+  await act(async () => {
+    r.root.findAll(n => n.props.accessibilityLabel === 'Add password' && typeof n.props.onPress === 'function')[0].props.onPress();
+    await wait(50);
+  });
+  // Choose the Banking type: account fields and cards appear.
+  await act(async () => {
+    r.root.findAll(n => n.props.accessibilityRole === 'radio' && n.findAll(x => x.props.children === 'Banking').length > 0)[0].props.onPress();
+  });
+  await act(async () => {
+    input('Title').props.onChangeText('HDFC Bank');
+    input('Password').props.onChangeText('N3t!banking#2026');
+    input('IFSC').props.onChangeText('hdfc0001234');
+  });
+  await pressButton(r, '+ Debit card');
+  await act(async () => {
+    input('Card number').props.onChangeText('4111 1111 1111 1111');
+    input('Expiry').props.onChangeText('0829');
+    input('Card PIN').props.onChangeText('4829');
+  });
+  expect(input('Card number').props.accessibilityLabel).toContain('Visa');
+  await pressButton(r, 'Save');
+
+  // List: Banking filter shows it, with its card count.
+  await pressButton(r, 'Banking');
+  let t = textOf(r);
+  expect(t).toContain('HDFC Bank');
+  expect(t).toContain('1 card');
+
+  await pressButton(r, 'HDFC Bank');
+  t = textOf(r);
+  expect(t).toContain('HDFC0001234'); // IFSC, upper-cased
+  expect(t).toContain('Debit card · Visa');
+  expect(t).toContain('•••• 1111');
+  expect(t).not.toContain('4111 1111 1111 1111');
+  expect(r.root.findAllByType(TextInput).filter(i => i.props.accessibilityLabel === 'Title')).toHaveLength(0); // read-only
+
+  const show = r.root.findAll(n => n.props.accessibilityLabel === 'Show Debit card details' && typeof n.props.onPress === 'function')[0];
+  await act(async () => {
+    show.props.onPress();
+  });
+  expect(textOf(r)).toContain('4111 1111 1111 1111');
+  expect(textOf(r)).toContain('4829');
 
   await act(async () => {
     r.unmount();

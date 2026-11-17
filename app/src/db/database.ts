@@ -1,4 +1,6 @@
 import { open, type DB, type Scalar } from '@op-engineering/op-sqlite';
+import { cardProblem, digits, type Card, type CardKind } from '../cards';
+import { SET_TYPE_FROM_FOLDER, serializeFields, type EntryType, type TypeFields } from '../entryTypes';
 import { Buffer } from '../security/crypto';
 
 export const VAULT_DB = 'vault.sqlite';
@@ -85,6 +87,26 @@ const MIGRATIONS: string[][] = [
   ],
   // v2: PIN entries (phone lock, SIM, ATM/card, UPI). The PIN is kept in `password`.
   [`ALTER TABLE entries ADD COLUMN kind TEXT NOT NULL DEFAULT 'login'`],
+  // v3 (1.5.0): types replace folders; type-specific fields (JSON); cards inside Banking entries.
+  // The folders table is kept (backups still carry it), but the app no longer shows folders.
+  [
+    `ALTER TABLE entries ADD COLUMN type TEXT NOT NULL DEFAULT 'other'`,
+    `ALTER TABLE entries ADD COLUMN fields TEXT`,
+    SET_TYPE_FROM_FOLDER,
+    `CREATE INDEX idx_entries_type ON entries(type)`,
+    `CREATE TABLE cards (
+      id         INTEGER PRIMARY KEY,
+      entry_id   INTEGER NOT NULL REFERENCES entries(id) ON DELETE CASCADE,
+      kind       TEXT NOT NULL,
+      number     TEXT NOT NULL,
+      expiry     TEXT,
+      name       TEXT,
+      pin        TEXT,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    )`,
+    `CREATE INDEX idx_cards_entry ON cards(entry_id)`,
+  ],
 ];
 
 function migrate(db: DB) {
@@ -117,6 +139,9 @@ export type EntryKind = 'login' | 'pin';
 export type Entry = {
   id: number;
   kind: EntryKind;
+  type: EntryType;
+  /** JSON of the type's extra fields (account number, IFSC, client ID…), or null. */
+  fields: string | null;
   folder_id: number | null;
   title: string;
   username: string | null;
@@ -128,12 +153,18 @@ export type Entry = {
   updated_at: number;
 };
 
-export type EntryListItem = Pick<Entry, 'id' | 'kind' | 'title' | 'username' | 'favorite' | 'folder_id'> & {
+export type EntryListItem = Pick<Entry, 'id' | 'kind' | 'type' | 'title' | 'username' | 'favorite' | 'folder_id'> & {
   folder_color: string | null;
+  cards: number;
 };
 
 export type EntryInput = {
   kind: EntryKind;
+  /** Defaults to 'other'. */
+  type?: EntryType;
+  fields?: TypeFields;
+  /** When given, replaces the entry's cards (Banking only; ignored for other types). */
+  cards?: Card[];
   folder_id: number | null;
   title: string;
   username: string;
@@ -204,7 +235,13 @@ export function deleteFolder(db: DB, id: number) {
   }
 }
 
-export function listEntries(db: DB, search: string, folderId: number | null, kind: EntryKind | null = null): EntryListItem[] {
+export function listEntries(
+  db: DB,
+  search: string,
+  folderId: number | null,
+  kind: EntryKind | null = null,
+  type: EntryType | null = null,
+): EntryListItem[] {
   const where: string[] = [];
   const params: Scalar[] = [];
   const q = search.trim();
@@ -222,7 +259,12 @@ export function listEntries(db: DB, search: string, folderId: number | null, kin
     where.push('e.kind = ?');
     params.push(kind);
   }
-  const sql = `SELECT e.id, e.kind, e.title, e.username, e.favorite, e.folder_id, f.color AS folder_color
+  if (type != null) {
+    where.push('e.type = ?');
+    params.push(type);
+  }
+  const sql = `SELECT e.id, e.kind, e.type, e.title, e.username, e.favorite, e.folder_id, f.color AS folder_color,
+      (SELECT count(*) FROM cards c WHERE c.entry_id = e.id) AS cards
     FROM entries e LEFT JOIN folders f ON f.id = e.folder_id
     ${where.length ? 'WHERE ' + where.join(' AND ') : ''}
     ORDER BY e.title COLLATE NOCASE`;
@@ -243,14 +285,57 @@ export function getPassword(db: DB, id: number): string | null {
 
 const orNull = (s: string) => (s.trim() ? s.trim() : null);
 
+export function listCards(db: DB, entryId: number): Card[] {
+  return rows<{ id: number; kind: CardKind; number: string; expiry: string | null; name: string | null; pin: string | null }>(
+    db,
+    'SELECT id, kind, number, expiry, name, pin FROM cards WHERE entry_id = ? ORDER BY id',
+    [entryId],
+  ).map(r => ({ id: r.id, kind: r.kind, number: r.number, expiry: r.expiry ?? '', name: r.name ?? '', pin: r.pin ?? '' }));
+}
+
+/** Saves an entry, and its cards when `input.cards` is given, in one transaction. */
 export function saveEntry(db: DB, input: EntryInput, id?: number): number {
   const now = Date.now();
   const pin = input.kind === 'pin';
   if (pin && !isValidPin(input.password)) {
     throw new Error('A PIN is 4 to 12 digits, or 4 to 16 letters and digits.');
   }
+  const type: EntryType = input.type ?? 'other';
+  const withCards = type === 'banking' && !pin;
+  const cards = withCards ? input.cards : input.cards ? [] : undefined;
+  for (const c of cards ?? []) {
+    const problem = cardProblem(c);
+    if (problem) {
+      throw new Error(problem);
+    }
+  }
+  const fields = pin ? null : serializeFields(type, input.fields ?? {});
+  db.executeSync('BEGIN');
+  try {
+    const entryId = writeEntry(db, input, type, fields, now, id);
+    if (cards) {
+      db.executeSync('DELETE FROM cards WHERE entry_id = ?', [entryId]);
+      for (const c of cards) {
+        db.executeSync(
+          'INSERT INTO cards (entry_id, kind, number, expiry, name, pin, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+          [entryId, c.kind, digits(c.number), orNull(c.expiry), orNull(c.name), orNull(c.pin), now, now],
+        );
+      }
+    }
+    db.executeSync('COMMIT');
+    return entryId;
+  } catch (e) {
+    db.executeSync('ROLLBACK');
+    throw e;
+  }
+}
+
+function writeEntry(db: DB, input: EntryInput, type: EntryType, fields: string | null, now: number, id?: number): number {
+  const pin = input.kind === 'pin';
   const common: Scalar[] = [
     input.kind,
+    type,
+    fields,
     input.folder_id,
     input.title.trim(),
     // A PIN has no username or website; drop any left over from switching type while editing.
@@ -262,15 +347,16 @@ export function saveEntry(db: DB, input: EntryInput, id?: number): number {
   ];
   if (id != null) {
     db.executeSync(
-      `UPDATE entries SET kind = ?, folder_id = ?, title = ?, username = ?, password = ?, url = ?, notes = ?,
-       favorite = ?, updated_at = ? WHERE id = ?`,
+      `UPDATE entries SET kind = ?, type = ?, fields = ?, folder_id = ?, title = ?, username = ?, password = ?,
+       url = ?, notes = ?, favorite = ?, updated_at = ? WHERE id = ?`,
       [...common, now, id],
     );
     return id;
   }
   const res = db.executeSync(
-    `INSERT INTO entries (kind, folder_id, title, username, password, url, notes, favorite, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO entries (kind, type, fields, folder_id, title, username, password, url, notes, favorite,
+       created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [...common, now, now],
   );
   return Number(res.insertId);
@@ -281,6 +367,7 @@ export function setFavorite(db: DB, id: number, favorite: boolean) {
 }
 
 export function deleteEntry(db: DB, id: number) {
+  db.executeSync('DELETE FROM cards WHERE entry_id = ?', [id]);
   db.executeSync('DELETE FROM entries WHERE id = ?', [id]);
 }
 

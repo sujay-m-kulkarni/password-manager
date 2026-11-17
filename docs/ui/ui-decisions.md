@@ -20,16 +20,16 @@ The mockups live on the design canvas "Password Manager UI Options" in Claude (G
 
 Every text colour has at least 5:1 contrast on the background it sits on.
 
-Each folder keeps its colour everywhere: chips, list icons, favourite tiles and the entry header.
+Each entry type keeps its colour everywhere: chips, list icons, favourite tiles and the entry header (Banking blue, Investments green, Social media pink, Email orange, Other violet, PINs amber). Types replaced folders in 1.5.0.
 All colours live in `app/src/theme.ts`.
 
 ## Screens
 
 1. **Setup** — master password, strength meter, rule: 12+ characters or 4+ words.
 2. **Unlock** — fingerprint circle on the dark ground, master password, lockout message. (Fingerprint button arrives with build step 7.)
-3. **Vault** — search, chips (All · **PINs** · folders), favourite tiles, list with Copy (PIN entries carry an amber PIN tag), clipboard countdown toast, + button (opens a PIN form when the PINs chip is on).
-4. **Entry detail** — header in the folder colour, show/hide/copy, strength bar, website, notes, edit, favourite, delete. A PIN shows large, spaced digits (482 913) and no strength bar.
-5. **Add/Edit** — a **Login / PIN** choice when adding. Login: form with a Generate button that opens the generator as a bottom sheet. PIN: title, a Numbers / Letters & numbers choice (Numbers: number pad, 4–12 digits; Letters & numbers: 4–16, for app passcodes), the PIN field with a running count, folder, favourite, notes.
+3. **Vault** — search, chips (All · Banking · Investments · Social media · Email · Other · **PINs**), list rows show the username and, for Banking, the number of cards, favourite tiles, list with Copy (PIN entries carry an amber PIN tag), clipboard countdown toast, + button (opens a PIN form when the PINs chip is on).
+4. **Entry detail** — read-only first; header in the type colour, show/hide/copy, type fields (account number, IFSC, customer ID / client ID, demat ID) with Copy, a Cards section (each card: Debit/Credit · network, number masked as •••• 1234 and the card PIN hidden until Show, expiry, name on card), Edit turns the same screen into the form with Save / Cancel, strength bar, website, notes, edit, favourite, delete. A PIN shows large, spaced digits (482 913) and no strength bar.
+5. **Add/Edit form** — used for a new entry and in place when editing: a **Type** choice, a **Login / PIN** choice. Banking adds account fields and a card editor (+ Debit card / + Credit card; number with network detection and a typo check, expiry MM/YY, card PIN 4–6 digits, name on card; no CVV). Login: form with a Generate button that opens the generator as a bottom sheet. PIN: title, a Numbers / Letters & numbers choice (Numbers: number pad, 4–12 digits; Letters & numbers: 4–16, for app passcodes), the PIN field with a running count, favourite, notes.
 6. **Generator tab** — same generator, with Copy.
 7. **Settings tab** — backup card (last backup, Export), unlock with fingerprint (+ phone screen lock), auto-lock, clipboard timer, change master password, recovery key, export/restore, lock now.
 8. **Setup** is three steps: master password → recovery key (shown once, "I've written it down") → fingerprint. "New phone? Restore from a backup" starts from a backup file instead.

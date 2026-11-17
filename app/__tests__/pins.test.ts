@@ -96,9 +96,11 @@ describe('saveEntry', () => {
     expect(saveEntry(db, base)).toBe(7);
     const insert = calls.find(c => c.sql.includes('INSERT INTO entries'))!;
     expect(insert.sql).toContain('kind');
-    // kind, folder, title, username, password, url, notes, favorite, created, updated
-    expect(insert.params.slice(0, 8)).toEqual([
+    // kind, type, fields, folder, title, username, password, url, notes, favorite, created, updated
+    expect(insert.params.slice(0, 10)).toEqual([
       'pin',
+      'other',
+      null,
       null,
       'Phone lock',
       null,
@@ -120,8 +122,10 @@ describe('saveEntry', () => {
     const { db, calls } = fakeDb();
     saveEntry(db, { ...base, kind: 'login', password: 'not a pin!' }, 3);
     const update = calls.find(c => c.sql.includes('UPDATE entries'))!;
-    expect(update.params.slice(0, 6)).toEqual([
+    expect(update.params.slice(0, 8)).toEqual([
       'login',
+      'other',
+      null,
       null,
       'Phone lock',
       'left over',

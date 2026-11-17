@@ -1,4 +1,5 @@
 import type { NavigatorScreenParams } from '@react-navigation/native';
+import type { EntryType } from '../entryTypes';
 
 export type TabParamList = {
   Vault: undefined;
@@ -11,10 +12,9 @@ export type RootStackParamList = {
   Unlock: undefined;
   Tabs: NavigatorScreenParams<TabParamList> | undefined;
   Entry: { id: number };
-  Edit: { id?: number; folderId?: number | null; kind?: 'login' | 'pin' };
+  Edit: { kind?: 'login' | 'pin'; type?: EntryType };
   ChangePassword: undefined;
   RecoveryKey: undefined;
   Restore: undefined;
   Help: undefined;
-  Folders: undefined;
 };
