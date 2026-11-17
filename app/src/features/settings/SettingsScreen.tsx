@@ -176,11 +176,6 @@ export function SettingsScreen() {
           )}
         </View>
 
-        <SectionLabel>Organise</SectionLabel>
-        <View style={s.list}>
-          <NavRow label="Folders" onPress={() => navigation.navigate('Folders')} />
-        </View>
-
         <SectionLabel>Security</SectionLabel>
         <View style={s.card}>
           <Text style={s.rowLabel}>Auto-lock after inactivity</Text>

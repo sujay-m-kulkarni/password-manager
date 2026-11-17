@@ -12,10 +12,13 @@ import {
   FOLDER_NAME_MAX,
   addFolder,
   deleteFolder,
+  deleteEntry,
   getEntry,
+  getQuickSecret,
   listEntries,
   listFolders,
   listFoldersWithCounts,
+  listPins,
   saveEntry,
   updateFolder,
 } from '../src/db/database';
@@ -29,7 +32,7 @@ type DB = Parameters<typeof saveEntry>[0];
 beforeEach(() => (mock.__reset(), resetMetaConnection()));
 
 const add = (db: DB, title: string, folder_id: number | null) =>
-  saveEntry(db, { kind: 'login', folder_id, title, username: '', password: 'S3cret!pass', url: '', notes: '', favorite: false });
+  saveEntry(db, { folder_id, title, username: '', password: 'S3cret!pass', url: '', notes: '', favorite: false });
 
 describe('folders', () => {
   it('adds, renames and recolours folders, sorted by name', async () => {
@@ -70,29 +73,39 @@ describe('folders', () => {
   });
 });
 
-describe('changing an entry between Login and PIN', () => {
-  it('keeps the entry and drops login-only fields when it becomes a PIN', async () => {
+describe('PINs inside an entry', () => {
+  it('a login can also hold named PINs; they can be replaced and removed', async () => {
     const { db } = await createVault(PW);
-    const id = add(db, 'Bank app', null);
-    saveEntry(
-      db,
-      { kind: 'pin', folder_id: null, title: 'Bank app', username: 'me', password: '482913', url: 'https://x', notes: '', favorite: false },
-      id,
-    );
-    const e = getEntry(db, id);
-    expect(e).toMatchObject({ kind: 'pin', password: '482913', username: null, url: null });
-    expect(listEntries(db, '', null, 'pin').map(x => x.id)).toEqual([id]);
+    const id = add(db, 'HDFC', null);
+    const base = { folder_id: null, title: 'HDFC', username: 'me', password: 'S3cret!pass', url: '', notes: '', favorite: false };
+    saveEntry(db, { ...base, pins: [{ label: 'UPI PIN', value: '482913' }, { label: 'MPIN', value: 'Ab12' }] }, id);
+    expect(listPins(db, id).map(p => [p.label, p.value])).toEqual([
+      ['UPI PIN', '482913'],
+      ['MPIN', 'Ab12'],
+    ]);
+    expect(listEntries(db, '', null, true).map(x => x.id)).toEqual([id]);
+    expect(listEntries(db, '', null)[0]).toMatchObject({ pins: 2, has_password: 1 });
 
-    saveEntry(db, { kind: 'login', folder_id: null, title: 'Bank app', username: 'me', password: 'N3w!pass', url: '', notes: '', favorite: false }, id);
-    expect(getEntry(db, id)).toMatchObject({ kind: 'login', username: 'me', password: 'N3w!pass' });
+    saveEntry(db, { ...base, title: 'HDFC Bank' }, id); // no `pins`: left as they are
+    expect(listPins(db, id)).toHaveLength(2);
+    saveEntry(db, { ...base, pins: [] }, id);
+    expect(listPins(db, id)).toEqual([]);
   });
 
-  it('will not save a secret with symbols as a PIN', async () => {
+  it('the list copies the password, or the first PIN when there is no password', async () => {
     const { db } = await createVault(PW);
-    const id = add(db, 'Bank app', null);
-    expect(() =>
-      saveEntry(db, { kind: 'pin', folder_id: null, title: 'Bank app', username: '', password: 'S3cret!pass', url: '', notes: '', favorite: false }, id),
-    ).toThrow();
+    const base = { folder_id: null, username: '', url: '', notes: '', favorite: false };
+    const a = saveEntry(db, { ...base, title: 'Bank', password: 'S3cret!pass', pins: [{ label: 'UPI PIN', value: '482913' }] });
+    const b = saveEntry(db, { ...base, title: 'Phone', password: '', pins: [{ label: 'Phone lock', value: '2468' }] });
+    expect(getQuickSecret(db, a)).toEqual({ what: 'password', value: 'S3cret!pass' });
+    expect(getQuickSecret(db, b)).toEqual({ what: 'PIN', value: '2468' });
+  });
+
+  it('deleting the entry deletes its PINs', async () => {
+    const { db } = await createVault(PW);
+    const id = saveEntry(db, { folder_id: null, title: 'SIM', username: '', password: '', url: '', notes: '', favorite: false, pins: [{ label: 'SIM PIN', value: '1234' }] });
+    deleteEntry(db, id);
+    expect(listPins(db, id)).toEqual([]);
   });
 });
 

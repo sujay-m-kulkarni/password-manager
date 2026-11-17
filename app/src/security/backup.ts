@@ -13,9 +13,10 @@
  */
 import type { DB, Scalar } from '@op-engineering/op-sqlite';
 import QuickCrypto from 'react-native-quick-crypto';
-import { getSetting, setSetting, type Entry, type Folder } from '../db/database';
+import { PIN_ENTRIES_TO_PINS, getSetting, setSetting, type Entry, type Folder } from '../db/database';
 import { Buffer, unwrap, wipe, wrap, type Wrapped } from './crypto';
 import { readHeader, unwrapWithPassword, unwrapWithRecovery, type Header } from './keyHierarchy';
+import { SET_TYPE_FROM_FOLDER } from '../entryTypes';
 
 export const BACKUP_FORMAT = 'vault-backup';
 const AAD_DATA = 'vault-backup-data:v1';
@@ -31,7 +32,22 @@ export type BackupFile = {
   data: Wrapped;
 };
 
-export type BackupData = { schema: number; folders: Folder[]; entries: Entry[] };
+/** A card row as stored (backups made before 1.5.0 have none). */
+export type BackupCard = {
+  id: number;
+  entry_id: number;
+  kind: string;
+  number: string;
+  expiry: string | null;
+  name: string | null;
+  pin: string | null;
+  created_at: number;
+  updated_at: number;
+};
+
+export type BackupPin = { id: number; entry_id: number; label: string; value: string; created_at: number; updated_at: number };
+
+export type BackupData = { schema: number; folders: Folder[]; entries: Entry[]; cards?: BackupCard[]; pins?: BackupPin[] };
 
 function dataKey(dek: Buffer): Buffer {
   return QuickCrypto.createHmac('sha256', dek).update(Buffer.from('vault-backup-data:v1', 'utf8')).digest() as Buffer;
@@ -49,6 +65,8 @@ export function createBackup(db: DB, dek: Buffer, now = new Date()): { text: str
     schema: Number(rows<{ user_version: number }>(db, 'PRAGMA user_version')[0]?.user_version ?? 0),
     folders: rows<Folder>(db, 'SELECT id, name, color FROM folders ORDER BY id'),
     entries: rows<Entry>(db, 'SELECT * FROM entries ORDER BY id'),
+    cards: rows<BackupCard>(db, 'SELECT * FROM cards ORDER BY id'),
+    pins: rows<BackupPin>(db, 'SELECT * FROM pins ORDER BY id'),
   };
   const key = dataKey(dek);
   try {
@@ -148,6 +166,8 @@ export async function openBackup(file: BackupFile, secret: string): Promise<Open
 export function restoreInto(db: DB, data: BackupData) {
   db.executeSync('BEGIN');
   try {
+    db.executeSync('DELETE FROM pins');
+    db.executeSync('DELETE FROM cards');
     db.executeSync('DELETE FROM entries');
     db.executeSync('DELETE FROM folders');
     for (const f of data.folders) {
@@ -157,6 +177,8 @@ export function restoreInto(db: DB, data: BackupData) {
       const params: Scalar[] = [
         e.id,
         e.kind ?? 'login',
+        e.type ?? null,
+        e.fields ?? null,
         e.folder_id ?? null,
         e.title,
         e.username ?? null,
@@ -168,9 +190,31 @@ export function restoreInto(db: DB, data: BackupData) {
         e.updated_at,
       ];
       db.executeSync(
-        `INSERT INTO entries (id, kind, folder_id, title, username, password, url, notes, favorite, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO entries (id, kind, type, fields, folder_id, title, username, password, url, notes, favorite,
+           created_at, updated_at)
+         VALUES (?, ?, coalesce(?, 'other'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         params,
+      );
+    }
+    // Backups from before types existed: choose each entry's type from its folder, as the upgrade did.
+    if (data.entries.length && data.entries.every(e => e.type == null)) {
+      db.executeSync(SET_TYPE_FROM_FOLDER);
+    }
+    for (const p of data.pins ?? []) {
+      db.executeSync(
+        'INSERT INTO pins (id, entry_id, label, value, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)',
+        [p.id, p.entry_id, p.label, p.value, p.created_at, p.updated_at],
+      );
+    }
+    // Backups from before 1.5.0: PIN entries become entries holding one PIN, as the upgrade did.
+    for (const sql of PIN_ENTRIES_TO_PINS) {
+      db.executeSync(sql);
+    }
+    for (const c of data.cards ?? []) {
+      db.executeSync(
+        `INSERT INTO cards (id, entry_id, kind, number, expiry, name, pin, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [c.id, c.entry_id, c.kind, c.number, c.expiry, c.name, c.pin, c.created_at, c.updated_at],
       );
     }
     db.executeSync('COMMIT');

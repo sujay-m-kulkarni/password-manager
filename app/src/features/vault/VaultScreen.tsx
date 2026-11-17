@@ -7,11 +7,11 @@ import { ClipboardToast } from '../../components/ClipboardToast';
 import { SectionLabel } from '../../components/ui';
 import {
   countEntries,
-  getPassword,
+  getQuickSecret,
   listEntries,
-  listFolders,
   type EntryListItem,
 } from '../../db/database';
+import { ENTRY_TYPES, typeInfo, type EntryType } from '../../entryTypes';
 import { pingActivity } from '../../security/AutoLock';
 import { backupDue } from '../../security/backup';
 import { useExportBackup } from '../settings/useExportBackup';
@@ -29,30 +29,27 @@ export function VaultScreen() {
   const clipboardSec = useSession(st => st.settings.clipboardSec);
   const dataVersion = useSession(st => st.dataVersion);
   const [search, setSearch] = useState('');
-  const [chosenFolder, setFolderId] = useState<number | null>(null);
+  const [type, setType] = useState<EntryType | null>(null);
   const [pinsOnly, setPinsOnly] = useState(false);
   useState(() => step('vault list: reading entries')); // once, before the first queries
 
-  const folders = useMemo(() => listFolders(db), [db, dataVersion]); // eslint-disable-line react-hooks/exhaustive-deps
-  // A folder deleted in Settings while selected here falls back to All.
-  const folderId = folders.some(f => f.id === chosenFolder) ? chosenFolder : null;
   const total = useMemo(() => countEntries(db), [db, dataVersion]); // eslint-disable-line react-hooks/exhaustive-deps
   const items = useMemo(
-    () => listEntries(db, search, folderId, pinsOnly ? 'pin' : null),
-    [db, search, folderId, pinsOnly, dataVersion], // eslint-disable-line react-hooks/exhaustive-deps
+    () => listEntries(db, search, null, pinsOnly, type),
+    [db, search, type, pinsOnly, dataVersion], // eslint-disable-line react-hooks/exhaustive-deps
   );
-  const browsing = !search.trim() && folderId == null && !pinsOnly;
+  const browsing = !search.trim() && type == null && !pinsOnly;
   const favorites = browsing ? items.filter(i => i.favorite) : [];
   const remind = useMemo(() => backupDue(db), [db, dataVersion]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
-    step(`vault list shown: ${total} entries, ${favorites.length} favourites, ${folders.length} folders`);
+    step(`vault list shown: ${total} entries, ${favorites.length} favourites`);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const { exportNow, busy: exporting } = useExportBackup();
 
   const copy = (id: number) => {
-    const pw = getPassword(db, id);
-    if (pw != null) {
-      copyWithAutoClear(pw, clipboardSec);
+    const secret = getQuickSecret(db, id);
+    if (secret) {
+      copyWithAutoClear(secret.value, clipboardSec);
     }
   };
 
@@ -69,7 +66,7 @@ export function VaultScreen() {
           <SectionLabel>Favorites</SectionLabel>
           <View style={s.favGrid}>
             {favorites.slice(0, 4).map(f => {
-              const c = folderColor(f.folder_color);
+              const c = folderColor(typeInfo(f.type).color);
               return (
                 <Pressable
                   key={f.id}
@@ -94,7 +91,9 @@ export function VaultScreen() {
           </View>
         </>
       )}
-      <SectionLabel>{browsing ? 'All items' : `${items.length} found`}</SectionLabel>
+      <SectionLabel>
+        {browsing ? 'All items' : type ? `${typeInfo(type).label} · ${items.length}` : `${items.length} found`}
+      </SectionLabel>
     </View>
   );
 
@@ -132,29 +131,33 @@ export function VaultScreen() {
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.chips}>
           <Chip
             label="All"
-            active={folderId == null && !pinsOnly}
+            active={type == null && !pinsOnly}
             onPress={() => {
-              setFolderId(null);
+              setType(null);
               setPinsOnly(false);
             }}
           />
+          {ENTRY_TYPES.map(t => (
+            <Chip
+              key={t.key}
+              label={t.label}
+              color={t.color}
+              active={type === t.key}
+              onPress={() => {
+                setType(type === t.key ? null : t.key);
+                setPinsOnly(false);
+              }}
+            />
+          ))}
           <Chip
             label="PINs"
             color="amber"
             active={pinsOnly}
             onPress={() => {
-              setFolderId(null);
-              setPinsOnly(true);
+              setType(null);
+              setPinsOnly(!pinsOnly);
             }}
           />
-          {folders.map(f => (
-            <Chip key={f.id} label={f.name} color={f.color} active={folderId === f.id}
-              onPress={() => {
-                setFolderId(f.id);
-                setPinsOnly(false);
-              }}
-            />
-          ))}
         </ScrollView>
       </View>
 
@@ -177,7 +180,7 @@ export function VaultScreen() {
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="Add password"
-        onPress={() => navigation.navigate('Edit', { folderId, kind: pinsOnly ? 'pin' : 'login' })}
+        onPress={() => navigation.navigate('Edit', { type: type ?? undefined, tab: pinsOnly ? 'pins' : undefined })}
         style={s.fab}>
         <Icon name="plus" size={28} color={colors.onPrimary} strokeWidth={2.5} />
       </Pressable>
@@ -186,7 +189,19 @@ export function VaultScreen() {
 }
 
 function Row({ item, onOpen, onCopy }: { item: EntryListItem; onOpen: () => void; onCopy: () => void }) {
-  const c = folderColor(item.folder_color);
+  const t = typeInfo(item.type);
+  const c = folderColor(t.color);
+  const cards = Number(item.cards) || 0;
+  const pins = Number(item.pins) || 0;
+  const hasPassword = !!Number(item.has_password);
+  const pinOnly = !hasPassword && pins > 0;
+  const sub = [
+    item.username,
+    pins && !pinOnly ? `${pins} ${pins === 1 ? 'PIN' : 'PINs'}` : null,
+    cards ? `${cards} ${cards === 1 ? 'card' : 'cards'}` : null,
+  ]
+    .filter(Boolean)
+    .join(' · ');
   return (
     <View style={s.row}>
       <Pressable accessibilityRole="button" onPress={onOpen} style={s.rowMain}>
@@ -198,22 +213,28 @@ function Row({ item, onOpen, onCopy }: { item: EntryListItem; onOpen: () => void
             <Text style={[s.rowTitle, s.titleText]} numberOfLines={1}>
               {item.title}
             </Text>
-            {item.kind === 'pin' && (
+            {pinOnly && (
               <View style={s.pinTag}>
                 <Text style={s.pinTagText}>PIN</Text>
               </View>
             )}
           </View>
-          {item.kind !== 'pin' && !!item.username && (
+          {!!sub && (
             <Text style={s.rowUser} numberOfLines={1}>
-              {item.username}
+              {sub}
             </Text>
           )}
         </View>
       </Pressable>
-      <Pressable accessibilityRole="button" accessibilityLabel={`Copy ${item.kind === 'pin' ? 'PIN' : 'password'} for ${item.title}`} onPress={onCopy} style={s.copyBtn}>
-        <Text style={s.copyText}>Copy</Text>
-      </Pressable>
+      {(hasPassword || pins > 0) && (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`Copy ${hasPassword ? 'password' : 'PIN'} for ${item.title}`}
+          onPress={onCopy}
+          style={s.copyBtn}>
+          <Text style={s.copyText}>Copy</Text>
+        </Pressable>
+      )}
     </View>
   );
 }

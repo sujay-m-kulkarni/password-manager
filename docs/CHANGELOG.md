@@ -4,6 +4,14 @@ What's new in each release, newest first. The GitHub release notes are made from
 merged pull request (`app/scripts/release-notes.mjs`); this file keeps the whole history in one place and is updated
 in every PR.
 
+## 1.5.0
+
+- Entry types replace folders: Banking, Investments, Social media, Email and Other, each with its own filter chip and colour. Your folders were turned into the matching types.
+- Banking entries hold the account number, IFSC and customer ID, plus the account’s debit and credit cards (number, expiry, name on card, card PIN; no CVV).
+- Investments entries (Zerodha, Groww…) hold the client ID and demat ID.
+- One entry holds a login, PINs and cards: the new and edit screens have tabs Login · PINs · Cards. Add several named PINs (UPI PIN, ATM PIN, MPIN…) to one entry; a phone lock is just a PIN with no password. Your PIN entries were kept, each as an entry with one PIN.
+- An entry opens read-only; card numbers and PINs stay hidden until you tap Show. Edit turns the same screen into text boxes, with Save and Cancel.
+
 ## 1.4.0
 
 - Automatic backup: choose a folder once in Settings › Backup, and Vault saves an encrypted backup there whenever your entries change (newest 5 kept). The files stay even if Vault is uninstalled.

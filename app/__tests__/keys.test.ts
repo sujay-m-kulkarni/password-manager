@@ -31,7 +31,7 @@ const PW2 = 'seven quiet blue lanterns';
 const mock = OpSqlite as unknown as { __reset: () => void };
 
 const add = (db: Parameters<typeof saveEntry>[0], title: string, password = 'S3cret!pass') =>
-  saveEntry(db, { kind: 'login', folder_id: null, title, username: 'me', password, url: '', notes: '', favorite: false });
+  saveEntry(db, { folder_id: null, title, username: 'me', password, url: '', notes: '', favorite: false });
 
 const titles = (db: Parameters<typeof saveEntry>[0]) =>
   (db.executeSync('SELECT title FROM entries ORDER BY title').rows as { title: string }[]).map(r => r.title);

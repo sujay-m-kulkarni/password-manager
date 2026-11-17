@@ -10,7 +10,6 @@ import { HelpScreen } from './src/features/help/HelpScreen';
 import { UnlockScreen } from './src/features/auth/UnlockScreen';
 import { GeneratorScreen } from './src/features/generator/GeneratorScreen';
 import { ChangePasswordScreen, RecoveryKeyScreen, RestoreScreen } from './src/features/settings/KeyScreens';
-import { FoldersScreen } from './src/features/settings/FoldersScreen';
 import { SettingsScreen } from './src/features/settings/SettingsScreen';
 import { EditEntryScreen } from './src/features/vault/EditEntryScreen';
 import { EntryDetailScreen } from './src/features/vault/EntryDetailScreen';
@@ -97,7 +96,6 @@ function VaultApp() {
                 <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />
                 <Stack.Screen name="RecoveryKey" component={RecoveryKeyScreen} />
                 <Stack.Screen name="Restore" component={RestoreScreen} />
-                <Stack.Screen name="Folders" component={FoldersScreen} />
               </>
             )}
             {/* Readable before unlocking: instructions only, no vault data. */}
