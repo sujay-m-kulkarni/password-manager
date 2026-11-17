@@ -85,8 +85,13 @@ export function EditEntryScreen({ navigation, route }: Props) {
       return;
     }
     setKind(next);
-    // A password rarely makes a valid PIN and vice versa; start the secret afresh.
-    setPassword('');
+    // Keep the secret if it still fits (any PIN is a valid password; a password is a valid PIN only
+    // if it is 4–12 digits); switching back to the saved type restores what was saved.
+    if (existing && next === existing.kind) {
+      setPassword(existing.password);
+    } else if (next === 'pin' && !isValidPin(password)) {
+      setPassword('');
+    }
     setShowPw(false);
     setError(null);
   };
@@ -134,22 +139,21 @@ export function EditEntryScreen({ navigation, route }: Props) {
           contentContainerStyle={s.form}
           keyboardShouldPersistTaps="handled"
         >
-          {editingId == null && (
-            <View style={s.kindRow} accessibilityRole="radiogroup">
-              <KindButton
-                label="Login"
-                hint="Username and password"
-                active={!pin}
-                onPress={() => switchKind('login')}
-              />
-              <KindButton
-                label="PIN"
-                hint="Phone, SIM, ATM, UPI"
-                active={pin}
-                onPress={() => switchKind('pin')}
-              />
-            </View>
-          )}
+          {/* Shown when adding and when editing, so a saved entry can change between Login and PIN. */}
+          <View style={s.kindRow} accessibilityRole="radiogroup">
+            <KindButton
+              label="Login"
+              hint="Username and password"
+              active={!pin}
+              onPress={() => switchKind('login')}
+            />
+            <KindButton
+              label="PIN"
+              hint="Phone, SIM, ATM, UPI"
+              active={pin}
+              onPress={() => switchKind('pin')}
+            />
+          </View>
           <Field
             label="Title"
             value={title}

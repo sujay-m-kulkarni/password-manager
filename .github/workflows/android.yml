@@ -212,8 +212,13 @@ jobs:
           if [[ "$GITHUB_REF" == refs/tags/v* ]]; then tag="${GITHUB_REF#refs/tags/}"; else tag="v${PM_VERSION}"; fi
           apk="vault-${PM_VERSION}.apk"
           cp app/android/app/build/outputs/apk/release/app-release.apk "$apk"
+          # Release notes: "What's new" from the merged PR (app/scripts/release-notes.mjs).
+          gh api "repos/$GITHUB_REPOSITORY/commits/$GITHUB_SHA/pulls" > "$RUNNER_TEMP/pr.json" || echo '[]' > "$RUNNER_TEMP/pr.json"
+          node app/scripts/release-notes.mjs --version "$PM_VERSION" --pr "$RUNNER_TEMP/pr.json" \
+            --build "$GITHUB_RUN_NUMBER" --sha "$GITHUB_SHA" > "$RUNNER_TEMP/notes.md"
+          cat "$RUNNER_TEMP/notes.md"
           gh release create "$tag" "$apk" --target "$GITHUB_SHA" --title "Vault ${PM_VERSION}" --latest \
-            --notes "Version ${PM_VERSION} (build ${GITHUB_RUN_NUMBER}, commit ${GITHUB_SHA::7}, labels: ${PM_LABELS:-none}). Offline build: no network permissions (checked by the pipeline). Install over the existing app; do not uninstall first — uninstalling deletes the vault."
+            --notes-file "$RUNNER_TEMP/notes.md"
 
       # Every merge makes a release, so keep only the newest 10 fix releases (such as v0.2.3).
       # Major and minor releases (v1.0.0, v0.3.0) are always kept.

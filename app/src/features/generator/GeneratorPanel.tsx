@@ -4,6 +4,7 @@ import { Button, StrengthBar } from '../../components/ui';
 import { getSetting, setSetting } from '../../db/database';
 import { useDb } from '../../store/session';
 import { colors, fonts } from '../../theme';
+import { Icon } from '../../components/Icon';
 import {
   DEFAULT_GENERATOR,
   MAX_LENGTH,
@@ -80,7 +81,7 @@ export function GeneratorPanel({
           ))}
         </Text>
         <Pressable accessibilityRole="button" accessibilityLabel="Generate another" onPress={() => regenerate(opts)} style={s.again}>
-          <Text style={s.againText}>↻</Text>
+          <Icon name="refresh" size={22} color={colors.white} />
         </Pressable>
       </View>
 
@@ -95,7 +96,7 @@ export function GeneratorPanel({
               accessibilityLabel="Shorter"
               onPress={() => update({ length: Math.max(MIN_LENGTH, opts.length - 1) })}
               style={s.stepBtn}>
-              <Text style={s.stepText}>−</Text>
+              <Icon name="minus" size={20} color={colors.primary} strokeWidth={2.5} />
             </Pressable>
             <Text style={s.lenValue}>{opts.length}</Text>
             <Pressable
@@ -103,7 +104,7 @@ export function GeneratorPanel({
               accessibilityLabel="Longer"
               onPress={() => update({ length: Math.min(MAX_LENGTH, opts.length + 1) })}
               style={s.stepBtn}>
-              <Text style={s.stepText}>+</Text>
+              <Icon name="plus" size={20} color={colors.primary} strokeWidth={2.5} />
             </Pressable>
           </View>
         </View>
@@ -161,12 +162,10 @@ const s = StyleSheet.create({
   display: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: colors.ink, borderRadius: 16, padding: 16 },
   pw: { flex: 1, fontFamily: 'monospace', fontSize: 18, lineHeight: 26 },
   again: { width: 44, height: 44, borderRadius: 12, backgroundColor: colors.inkSoft, alignItems: 'center', justifyContent: 'center' },
-  againText: { fontSize: 22, color: colors.white },
   lenHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   label: { fontFamily: fonts.semibold, fontSize: 15, color: colors.ink },
   stepper: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   stepBtn: { width: 44, height: 44, borderRadius: 12, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center' },
-  stepText: { fontFamily: fonts.bold, fontSize: 22, color: colors.primary },
   lenValue: { minWidth: 32, textAlign: 'center', fontFamily: fonts.extrabold, fontSize: 18, color: colors.primary },
   quick: { flexDirection: 'row', gap: 6 },
   quickBtn: { flex: 1, height: 40, borderRadius: 12, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center' },

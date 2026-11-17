@@ -2,7 +2,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import React, { useEffect } from 'react';
-import { ActivityIndicator, StatusBar, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, StatusBar, StyleSheet, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { CrashReportNotice } from './src/components/CrashReportNotice';
 import { SetupScreen } from './src/features/auth/SetupScreen';
@@ -10,6 +10,7 @@ import { HelpScreen } from './src/features/help/HelpScreen';
 import { UnlockScreen } from './src/features/auth/UnlockScreen';
 import { GeneratorScreen } from './src/features/generator/GeneratorScreen';
 import { ChangePasswordScreen, RecoveryKeyScreen, RestoreScreen } from './src/features/settings/KeyScreens';
+import { FoldersScreen } from './src/features/settings/FoldersScreen';
 import { SettingsScreen } from './src/features/settings/SettingsScreen';
 import { EditEntryScreen } from './src/features/vault/EditEntryScreen';
 import { EntryDetailScreen } from './src/features/vault/EntryDetailScreen';
@@ -18,13 +19,14 @@ import type { RootStackParamList, TabParamList } from './src/navigation/types';
 import { AutoLock } from './src/security/AutoLock';
 import { useSession } from './src/store/session';
 import { colors, fonts } from './src/theme';
+import { Icon, type IconName } from './src/components/Icon';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator<TabParamList>();
 
 const navTheme = { ...DefaultTheme, colors: { ...DefaultTheme.colors, background: colors.bg } };
 
-const TAB_GLYPH: Record<keyof TabParamList, string> = { Vault: '◈', Generator: '✦', Settings: '☰' };
+const TAB_ICON: Record<keyof TabParamList, IconName> = { Vault: 'vault', Generator: 'sparkle', Settings: 'settings' };
 
 function Tabs() {
   return (
@@ -35,7 +37,7 @@ function Tabs() {
         tabBarInactiveTintColor: colors.muted,
         tabBarStyle: styles.tabBar,
         tabBarLabelStyle: styles.tabLabel,
-        tabBarIcon: ({ color }) => <Text style={[styles.tabIcon, { color }]}>{TAB_GLYPH[route.name]}</Text>,
+        tabBarIcon: ({ color }) => <Icon name={TAB_ICON[route.name]} color={color} />,
       })}>
       <Tab.Screen name="Vault" component={VaultScreen} />
       <Tab.Screen name="Generator" component={GeneratorScreen} />
@@ -78,6 +80,7 @@ export default function App() {
                 <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />
                 <Stack.Screen name="RecoveryKey" component={RecoveryKeyScreen} />
                 <Stack.Screen name="Restore" component={RestoreScreen} />
+                <Stack.Screen name="Folders" component={FoldersScreen} />
               </>
             )}
             {/* Readable before unlocking: instructions only, no vault data. */}
@@ -94,5 +97,4 @@ const styles = StyleSheet.create({
   loading: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.bg },
   tabBar: { backgroundColor: colors.surface, borderTopColor: '#E4DFF5', height: 68, paddingTop: 6 },
   tabLabel: { fontFamily: fonts.bold, fontSize: 12 },
-  tabIcon: { fontSize: 20 },
 });

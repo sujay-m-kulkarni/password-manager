@@ -19,6 +19,7 @@ import { copyWithAutoClear } from '../../security/clipboard';
 import { useDb, useSession } from '../../store/session';
 import { colors, folderColor, fonts } from '../../theme';
 import type { RootStackParamList } from '../../navigation/types';
+import { Icon } from '../../components/Icon';
 
 export function VaultScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
@@ -27,10 +28,12 @@ export function VaultScreen() {
   const clipboardSec = useSession(st => st.settings.clipboardSec);
   const dataVersion = useSession(st => st.dataVersion);
   const [search, setSearch] = useState('');
-  const [folderId, setFolderId] = useState<number | null>(null);
+  const [chosenFolder, setFolderId] = useState<number | null>(null);
   const [pinsOnly, setPinsOnly] = useState(false);
 
   const folders = useMemo(() => listFolders(db), [db, dataVersion]); // eslint-disable-line react-hooks/exhaustive-deps
+  // A folder deleted in Settings while selected here falls back to All.
+  const folderId = folders.some(f => f.id === chosenFolder) ? chosenFolder : null;
   const total = useMemo(() => countEntries(db), [db, dataVersion]); // eslint-disable-line react-hooks/exhaustive-deps
   const items = useMemo(
     () => listEntries(db, search, folderId, pinsOnly ? 'pin' : null),
@@ -72,7 +75,7 @@ export function VaultScreen() {
                     <View style={s.favInitial}>
                       <Text style={[s.favInitialText, { color: c.ink }]}>{initial(f.title)}</Text>
                     </View>
-                    <Text style={s.star}>★</Text>
+                    <Icon name="star" size={18} color={colors.warn} />
                   </View>
                   <Text style={s.favTitle} numberOfLines={1}>
                     {f.title}
@@ -171,7 +174,7 @@ export function VaultScreen() {
         accessibilityLabel="Add password"
         onPress={() => navigation.navigate('Edit', { folderId, kind: pinsOnly ? 'pin' : 'login' })}
         style={s.fab}>
-        <Text style={s.fabText}>+</Text>
+        <Icon name="plus" size={28} color={colors.white} strokeWidth={2.5} />
       </Pressable>
     </SafeAreaView>
   );
@@ -263,7 +266,6 @@ const s = StyleSheet.create({
   favTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
   favInitial: { width: 36, height: 36, borderRadius: 10, backgroundColor: colors.white, alignItems: 'center', justifyContent: 'center' },
   favInitialText: { fontFamily: fonts.extrabold, fontSize: 16 },
-  star: { fontSize: 18, color: colors.warn },
   favTitle: { fontFamily: fonts.bold, fontSize: 15, color: colors.white },
   favUser: { fontFamily: fonts.regular, fontSize: 13, color: '#F1EEFF' },
   row: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surface, borderRadius: 16, paddingLeft: 12, paddingRight: 6 },
@@ -287,5 +289,4 @@ const s = StyleSheet.create({
     justifyContent: 'center',
     elevation: 6,
   },
-  fabText: { fontFamily: fonts.bold, fontSize: 30, lineHeight: 34, color: colors.white },
 });

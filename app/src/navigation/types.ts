@@ -16,4 +16,5 @@ export type RootStackParamList = {
   RecoveryKey: undefined;
   Restore: undefined;
   Help: undefined;
+  Folders: undefined;
 };

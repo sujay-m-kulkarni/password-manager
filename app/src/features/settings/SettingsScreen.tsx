@@ -7,10 +7,12 @@ import { Banner, Button, SectionLabel } from '../../components/ui';
 import type { RootStackParamList } from '../../navigation/types';
 import { backupDue, lastBackupAt } from '../../security/backup';
 import * as Biometric from '../../security/biometric';
-import { hasRecoveryKey } from '../../security/keyHierarchy';
+import { hasRecoveryKey, unlockCost } from '../../security/keyHierarchy';
 import { useDb, useSession } from '../../store/session';
 import { colors, fonts } from '../../theme';
+import { useAppVersion } from '../../utils/appVersion';
 import { useExportBackup } from './useExportBackup';
+import { Icon } from '../../components/Icon';
 
 const AUTO_LOCK = [
   { sec: 30, label: '30 s' },
@@ -32,6 +34,7 @@ export function SettingsScreen() {
   const dataVersion = useSession(st => st.dataVersion);
   const withAutoLockPaused = useSession(st => st.withAutoLockPaused);
   const { exportNow, busy: exporting } = useExportBackup();
+  const version = useAppVersion();
 
   const [support, setSupport] = useState<Biometric.BiometricSupport | null>(null);
   const [bioOn, setBioOn] = useState(Biometric.isEnabled());
@@ -39,10 +42,14 @@ export function SettingsScreen() {
   const [bioBusy, setBioBusy] = useState(false);
   const [bioError, setBioError] = useState<string | null>(null);
   const [recovery, setRecovery] = useState(hasRecoveryKey());
+  const [cost, setCost] = useState(unlockCost());
 
   useEffect(() => {
     Biometric.support().then(setSupport);
-    const unsub = navigation.addListener('focus', () => setRecovery(hasRecoveryKey()));
+    const unsub = navigation.addListener('focus', () => {
+      setRecovery(hasRecoveryKey());
+      setCost(unlockCost());
+    });
     return unsub;
   }, [navigation]);
 
@@ -117,6 +124,11 @@ export function SettingsScreen() {
           )}
         </View>
 
+        <SectionLabel>Organise</SectionLabel>
+        <View style={s.list}>
+          <NavRow label="Folders" onPress={() => navigation.navigate('Folders')} />
+        </View>
+
         <SectionLabel>Security</SectionLabel>
         <View style={s.card}>
           <Text style={s.rowLabel}>Auto-lock after inactivity</Text>
@@ -136,6 +148,18 @@ export function SettingsScreen() {
             onPress={() => navigation.navigate('RecoveryKey')}
           />
         </View>
+        {cost && (
+          <View style={s.card}>
+            <View style={s.toggleRow}>
+              <Text style={[s.rowLabel, { flex: 1 }]}>Master password unlock</Text>
+              <Text style={[s.navValue, { color: colors.primary }]}>{cost.ms != null ? `${(cost.ms / 1000).toFixed(1)} s` : '—'}</Text>
+            </View>
+            <Text style={s.hint}>
+              Tuned to this phone ({cost.memMiB} MB × {cost.passes} {cost.passes === 1 ? 'pass' : 'passes'}): slow enough to make guessing
+              your password expensive, quick enough for you. Changing the password re-tunes it.
+            </Text>
+          </View>
+        )}
         {!recovery && <Banner tone="warn" text="No recovery key yet. Without one, a forgotten master password can't be undone." />}
 
         <SectionLabel>Backup</SectionLabel>
@@ -150,7 +174,9 @@ export function SettingsScreen() {
         </View>
 
         <Button title="Lock now" variant="dark" onPress={() => lock()} />
-        <Text style={s.footer}>Offline build · no internet permission</Text>
+        <Text style={s.footer}>
+          Vault {version?.name ?? ''} · Offline build · no internet permission
+        </Text>
       </ScrollView>
     </SafeAreaView>
   );
@@ -200,7 +226,7 @@ function NavRow({ label, value, valueColor, onPress }: { label: string; value?: 
     <Pressable accessibilityRole="button" onPress={onPress} style={s.navRow}>
       <Text style={[s.rowLabel, { flex: 1 }]}>{label}</Text>
       {value && <Text style={[s.navValue, { color: valueColor ?? colors.primary }]}>{value}</Text>}
-      <Text style={s.chevron}>›</Text>
+      <Icon name="chevron-right" size={20} color={colors.muted} />
     </Pressable>
   );
 }
@@ -261,7 +287,6 @@ const s = StyleSheet.create({
     borderBottomColor: colors.divider,
   },
   navValue: { fontFamily: fonts.bold, fontSize: 14 },
-  chevron: { fontSize: 22, color: colors.muted },
   segment: { flexDirection: 'row', backgroundColor: colors.bg, borderRadius: 14, padding: 4, gap: 4 },
   segBtn: { flex: 1, height: 44, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
   segBtnOn: { backgroundColor: colors.primary },

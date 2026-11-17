@@ -10,6 +10,7 @@ import { useDb, useSession } from '../../store/session';
 import { colors, folderColor, fonts } from '../../theme';
 import { estimateStrength } from '../../utils/strength';
 import type { RootStackParamList } from '../../navigation/types';
+import { Icon, type IconName } from '../../components/Icon';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Entry'>;
 
@@ -54,11 +55,11 @@ export function EntryDetailScreen({ navigation, route }: Props) {
       <ScrollView contentContainerStyle={{ paddingBottom: 120 }}>
         <SafeAreaView edges={['top']} style={[s.hero, { backgroundColor: c.solid }]}>
           <View style={s.heroBar}>
-            <HeroButton label="Back" text="‹ Back" onPress={() => navigation.goBack()} />
+            <HeroButton label="Back" icon="chevron-left" text="Back" onPress={() => navigation.goBack()} />
             <View style={{ flexDirection: 'row', gap: 8 }}>
               <HeroButton
                 label={entry.favorite ? 'Remove from favorites' : 'Add to favorites'}
-                text={entry.favorite ? '★' : '☆'}
+                icon={entry.favorite ? 'star' : 'star-outline'}
                 onPress={() => {
                   setFavorite(db, entry.id, !entry.favorite);
                   touchData();
@@ -150,10 +151,11 @@ function SmallBtn({ label, text, onPress, muted }: { label: string; text: string
   );
 }
 
-function HeroButton({ label, text, onPress }: { label: string; text: string; onPress: () => void }) {
+function HeroButton({ label, text, icon, onPress }: { label: string; text?: string; icon?: IconName; onPress: () => void }) {
   return (
-    <Pressable accessibilityRole="button" accessibilityLabel={label} onPress={onPress} style={s.heroBtn}>
-      <Text style={s.heroBtnText}>{text}</Text>
+    <Pressable accessibilityRole="button" accessibilityLabel={label} onPress={onPress} style={[s.heroBtn, s.heroBtnRow]}>
+      {icon && <Icon name={icon} size={18} color={colors.white} strokeWidth={2.5} />}
+      {text && <Text style={s.heroBtnText}>{text}</Text>}
     </Pressable>
   );
 }
@@ -166,6 +168,7 @@ const s = StyleSheet.create({
   hero: { borderBottomLeftRadius: 32, borderBottomRightRadius: 32, paddingHorizontal: 12, paddingBottom: 28 },
   heroBar: { flexDirection: 'row', justifyContent: 'space-between', paddingTop: 8 },
   heroBtn: { minWidth: 44, height: 44, paddingHorizontal: 12, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' },
+  heroBtnRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   heroBtnText: { fontFamily: fonts.bold, fontSize: 16, color: colors.white },
   editBtn: { height: 44, paddingHorizontal: 16, borderRadius: 14, backgroundColor: colors.white, justifyContent: 'center' },
   editText: { fontFamily: fonts.bold, fontSize: 15 },

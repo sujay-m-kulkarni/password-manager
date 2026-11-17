@@ -15,6 +15,7 @@ import { useSession } from '../store/session';
 import { colors, fonts } from '../theme';
 import { estimateStrength } from '../utils/strength';
 import { Banner, Button, Field, StrengthBar, secretInputProps } from './ui';
+import { Icon } from './Icon';
 
 export function Screen({
   kicker,
@@ -134,7 +135,7 @@ export function RecoveryKeyPanel({ code, onDone, doneTitle }: { code: string; on
         accessibilityState={{ checked: writtenDown }}
         onPress={() => setWrittenDown(v => !v)}
         style={s.checkRow}>
-        <View style={[s.check, writtenDown && s.checkOn]}>{writtenDown && <Text style={s.checkMark}>✓</Text>}</View>
+        <View style={[s.check, writtenDown && s.checkOn]}>{writtenDown && <Icon name="check" size={16} color={colors.white} strokeWidth={3} />}</View>
         <Text style={s.checkText}>I've written down my recovery key</Text>
       </Pressable>
       <Button title={doneTitle} onPress={onDone} disabled={!writtenDown} />
@@ -236,7 +237,6 @@ export const s = StyleSheet.create({
     justifyContent: 'center',
   },
   checkOn: { backgroundColor: colors.primary },
-  checkMark: { color: colors.white, fontFamily: fonts.bold, fontSize: 16 },
   checkText: { flex: 1, fontFamily: fonts.semibold, fontSize: 15, color: colors.ink },
   switchRow: {
     flexDirection: 'row',
