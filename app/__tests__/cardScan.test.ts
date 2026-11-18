@@ -6,11 +6,13 @@ import {
   canScanCards,
   findExpiry,
   findKind,
+  findBank,
   findName,
   mergeScan,
   missingFromScan,
   readCard,
   scanCard,
+  titleMatchesBank,
 } from '../src/cardScan';
 
 // Text as ML Kit returns it, line by line, from two typical Indian cards.
@@ -61,6 +63,7 @@ test('a full reading', () => {
     expiry: '01/28',
     name: 'SUJAY M KULKARNI',
     kind: 'debit',
+    bank: 'HDFC Bank',
   });
 });
 
@@ -83,7 +86,7 @@ const BACK = ['4111 1111 1111 1111', 'VALID THRU', '04/30', 'CVV', '123', 'AUTHO
 
 test('two sides: the second fills only what is still missing', () => {
   const front = readCard({ number: null, lines: FRONT }); // Done on a side without the number
-  expect(front).toEqual({ number: '', expiry: '', name: 'SUJAY KULKARNI', kind: 'debit' });
+  expect(front).toEqual({ number: '', expiry: '', name: 'SUJAY KULKARNI', kind: 'debit', bank: 'ICICI Bank' });
   expect(missingFromScan(front)).toEqual(['card number', 'expiry']);
 
   const back = readCard({ number: '4111111111111111', lines: BACK });
@@ -105,4 +108,36 @@ test('the second side is scanned with its own prompt', async () => {
   NativeModules.CardScan = { scan };
   await scanCard(OTHER_SIDE_PROMPT);
   expect(scan).toHaveBeenCalledWith(OTHER_SIDE_PROMPT);
+});
+
+test('the bank or issuer printed on the card', () => {
+  expect(findBank(HDFC_DEBIT)).toBe('HDFC Bank');
+  expect(findBank(SBI_CREDIT)).toBe('State Bank of India');
+  expect(findBank(['ICICI Bank', 'Coral'])).toBe('ICICI Bank');
+  expect(findBank(['AXIS BANK', 'ACE'])).toBe('Axis Bank');
+  expect(findBank(['kotak', 'Mahindra Bank'])).toBe('Kotak Mahindra Bank');
+  expect(findBank(['Canara Bank'])).toBe('Canara Bank');
+  expect(findBank(['IDFC FIRST', 'Bank'])).toBe('IDFC FIRST Bank');
+  expect(findBank(['BOBCARD', 'Eterna'])).toBe('Bank of Baroda');
+  expect(findBank(['AMERICAN EXPRESS', 'Platinum'])).toBe('American Express');
+  expect(findBank(['RuPay', 'DEBIT'])).toBeNull();
+});
+
+test('lookalike bank names are told apart', () => {
+  expect(findBank(['State Bank of India'])).toBe('State Bank of India');
+  expect(findBank(['Bank of India'])).toBe('Bank of India');
+  expect(findBank(['Central Bank of India'])).toBe('Central Bank of India');
+  expect(findBank(['South Indian Bank'])).toBe('South Indian Bank');
+  expect(findBank(['Indian Bank'])).toBe('Indian Bank');
+  expect(findBank(['Indian Overseas Bank'])).toBe('Indian Overseas Bank');
+  expect(findBank(['CITY UNION BANK'])).toBe('City Union Bank'); // not Citibank
+  expect(findBank(['Punjab & Sind Bank'])).toBe('Punjab & Sind Bank');
+});
+
+test('does the entry title already name the bank?', () => {
+  expect(titleMatchesBank('HDFC', 'HDFC Bank')).toBe(true);
+  expect(titleMatchesBank('My HDFC salary account', 'HDFC Bank')).toBe(true);
+  expect(titleMatchesBank('SBI', 'State Bank of India')).toBe(true);
+  expect(titleMatchesBank('Kotak 811', 'Kotak Mahindra Bank')).toBe(true);
+  expect(titleMatchesBank('HDFC Bank', 'State Bank of India')).toBe(false);
 });

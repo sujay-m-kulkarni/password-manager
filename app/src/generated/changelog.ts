@@ -3,6 +3,13 @@ export type Release = { version: string; points: string[] };
 
 export const CHANGELOG: Release[] = [
   {
+    "version": "1.8.2",
+    "points": [
+      "Scanning a card now also reads the bank's name (HDFC, SBI, ICICI, Axis, Kotak and over 40 other Indian banks and card issuers). A new entry without a title gets the bank as its title.",
+      "If the scanned card is from a different bank than the entry, Vault points it out so the card goes in the right place."
+    ]
+  },
+  {
     "version": "1.8.1",
     "points": [
       "Fixed: Scan a card closed the app instead of opening the camera.",

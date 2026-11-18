@@ -4,6 +4,11 @@ What's new in each release, newest first. The GitHub release notes are made from
 merged pull request (`app/scripts/release-notes.mjs`); this file keeps the whole history in one place and is updated
 in every PR.
 
+## 1.8.2
+
+- Scanning a card now also reads the bank's name (HDFC, SBI, ICICI, Axis, Kotak and over 40 other Indian banks and card issuers). A new entry without a title gets the bank as its title.
+- If the scanned card is from a different bank than the entry, Vault points it out so the card goes in the right place.
+
 ## 1.8.1
 
 - Fixed: Scan a card closed the app instead of opening the camera.

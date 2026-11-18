@@ -13,7 +13,7 @@ import { NativeModules } from 'react-native';
 import { cleanCardNumber, type Card, type CardKind } from './cards';
 
 export type ScanResult = { number?: string | null; lines: string[] };
-export type ScannedCard = Pick<Card, 'number' | 'expiry' | 'name'> & { kind: CardKind | null };
+export type ScannedCard = Pick<Card, 'number' | 'expiry' | 'name'> & { kind: CardKind | null; bank: string | null };
 
 type Native = { scan(prompt: string | null): Promise<ScanResult | null> };
 const native = () => NativeModules.CardScan as Native | undefined;
@@ -90,7 +90,85 @@ export function findKind(lines: string[]): CardKind | null {
   return credit === debit ? null : credit ? 'credit' : 'debit';
 }
 
+/**
+ * Banks and card issuers in India, as printed on cards. Each pattern matches whole words, case
+ * ignored; the first listed name is what Vault shows. More specific names come first (e.g.
+ * "Bank of India" is checked after "Central Bank of India" and "State Bank of India").
+ */
+const BANKS: [string, RegExp][] = [
+  ['State Bank of India', /\b(STATE BANK OF INDIA|SBI\s?CARD|SBI)\b/],
+  ['Central Bank of India', /\bCENTRAL BANK OF INDIA\b/],
+  ['City Union Bank', /\bCITY UNION BANK\b/],
+  ['Union Bank of India', /\bUNION BANK( OF INDIA)?\b/],
+  ['Indian Overseas Bank', /\bINDIAN OVERSEAS BANK|\bIOB\b/],
+  ['Bank of Baroda', /\bBANK OF BARODA|\bBOBCARD\b|\bBOB\s?(CARD|FINANCIAL)\b/],
+  ['Bank of Maharashtra', /\bBANK OF MAHARASHTRA\b/],
+  ['Bank of India', /\bBANK OF INDIA\b/],
+  ['HDFC Bank', /\bHDFC\b/],
+  ['ICICI Bank', /\bICICI\b/],
+  ['Axis Bank', /\bAXIS\s?BANK\b/],
+  ['Kotak Mahindra Bank', /\bKOTAK\b/],
+  ['IndusInd Bank', /\bINDUSIND\b/],
+  ['Yes Bank', /\bYES\s?BANK\b/],
+  ['IDFC FIRST Bank', /\bIDFC\b/],
+  ['IDBI Bank', /\bIDBI\b/],
+  ['Punjab National Bank', /\bPUNJAB NATIONAL BANK|\bPNB\b/],
+  ['Punjab & Sind Bank', /\bPUNJAB (&|AND) SIND\b/],
+  ['Canara Bank', /\bCANARA\b/],
+  ['UCO Bank', /\bUCO\s?BANK\b/],
+  ['Federal Bank', /\bFEDERAL BANK\b/],
+  ['South Indian Bank', /\bSOUTH INDIAN BANK\b/],
+  ['Indian Bank', /\bINDIAN BANK\b/],
+  ['Karnataka Bank', /\bKARNATAKA BANK\b/],
+  ['Karur Vysya Bank', /\bKARUR VYSYA|\bKVB\b/],
+  ['Tamilnad Mercantile Bank', /\bTAMILNAD MERCANTILE|\bTMB\b/],
+  ['RBL Bank', /\bRBL\s?BANK\b/],
+  ['Bandhan Bank', /\bBANDHAN\b/],
+  ['AU Small Finance Bank', /\bAU (SMALL FINANCE )?BANK\b/],
+  ['Equitas Small Finance Bank', /\bEQUITAS\b/],
+  ['Ujjivan Small Finance Bank', /\bUJJIVAN\b/],
+  ['Jammu & Kashmir Bank', /\bJ\s?&\s?K BANK|\bJAMMU (&|AND) KASHMIR BANK\b/],
+  ['DCB Bank', /\bDCB\s?BANK\b/],
+  ['CSB Bank', /\bCSB\s?BANK\b/],
+  ['Saraswat Bank', /\bSARASWAT\b/],
+  ['Standard Chartered', /\bSTANDARD CHARTERED\b/],
+  ['HSBC', /\bHSBC\b/],
+  ['Citibank', /\bCITI(BANK)?\b/],
+  ['DBS Bank', /\bDBS\b/],
+  ['American Express', /\bAMERICAN EXPRESS\b/],
+  ['India Post Payments Bank', /\bINDIA POST PAYMENTS|\bIPPB\b/],
+  ['Airtel Payments Bank', /\bAIRTEL PAYMENTS\b/],
+  ['Paytm Payments Bank', /\bPAYTM\b/],
+  ['Fino Payments Bank', /\bFINO\b/],
+  ['OneCard', /\bONE\s?CARD\b/],
+];
+
+/** The bank or issuer printed on the card, or null when none is recognised. */
+export function findBank(lines: string[]): string | null {
+  const text = ` ${lines.join(' ').toUpperCase().replace(/\s+/g, ' ')} `;
+  for (const [name, re] of BANKS) {
+    if (re.test(text)) {
+      return name;
+    }
+  }
+  return null;
+}
+
+/** True when an entry's title already names this bank ("HDFC", "HDFC Bank", "My HDFC salary a/c"). */
+export function titleMatchesBank(title: string, bank: string): boolean {
+  const t = title.toUpperCase();
+  const key = bank.toUpperCase().replace(/\b(BANK|OF|INDIA|SMALL|FINANCE|PAYMENTS|MAHINDRA|FIRST)\b/g, '').trim();
+  const pattern = BANKS.find(([n]) => n === bank)?.[1];
+  return (key.length > 0 && t.includes(key)) || (!!pattern && pattern.test(` ${t} `));
+}
+
 export function readCard(r: ScanResult): ScannedCard {
   const lines = r.lines ?? [];
-  return { number: cleanCardNumber(r.number ?? ''), expiry: findExpiry(lines), name: findName(lines), kind: findKind(lines) };
+  return {
+    number: cleanCardNumber(r.number ?? ''),
+    expiry: findExpiry(lines),
+    name: findName(lines),
+    kind: findKind(lines),
+    bank: findBank(lines),
+  };
 }
