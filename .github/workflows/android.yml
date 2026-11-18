@@ -67,6 +67,34 @@ jobs:
         working-directory: app/android
         run: ./gradlew assembleDebug --stacktrace
 
+      # The shipped APK is shrunk by R8, the debug one isn't. Build a shrunk release here too
+      # (debug-signed; nothing is published) so shrinking problems show up in the PR. 1.8.0's card
+      # scanner worked unshrunk but crashed in the release build.
+      - name: Shrunk release build (check only)
+        working-directory: app/android
+        run: ./gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a --stacktrace
+
+      - name: Shrunk release keeps what the scanner needs, and stays offline
+        run: |
+          apk=app/android/app/build/outputs/apk/release/app-release.apk
+          aapt=$(ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -1)aapt
+          perms=$("$aapt" dump permissions "$apk")
+          if grep -qE "android.permission.(INTERNET|ACCESS_NETWORK_STATE|ACCESS_WIFI_STATE)" <<< "$perms"; then
+            echo "::error::The release APK asks for a network permission. It must be fully offline."
+            exit 1
+          fi
+          tree=$("$aapt" dump xmltree "$apk" AndroidManifest.xml)
+          for cls in com.vaultapp.cardscan.CardScanActivity com.google.mlkit.common.internal.MlKitInitProvider; do
+            grep -q "$cls" <<< "$tree" || { echo "::error::$cls is missing from the release manifest"; exit 1; }
+          done
+          dexdump=$(ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -1)dexdump
+          unzip -o -q "$apk" 'classes*.dex' -d "$RUNNER_TEMP/dex"
+          for cls in Lcom/google/mlkit/common/sdkinternal/MlKitContext\; Lcom/google/mlkit/vision/text/TextRecognition\; Lcom/vaultapp/cardscan/CardScanActivity\;; do
+            "$dexdump" "$RUNNER_TEMP"/dex/classes*.dex 2>/dev/null | grep -q "Class descriptor  : '$cls'" \
+              || { echo "::error::$cls was removed or renamed by shrinking"; exit 1; }
+          done
+          echo "Release APK: offline, scanner classes kept."
+
       - name: Keep the debug APK
         uses: actions/upload-artifact@v4
         with:
