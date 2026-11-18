@@ -16,4 +16,7 @@ export type RootStackParamList = {
   RecoveryKey: undefined;
   Restore: undefined;
   Help: undefined;
+  About: undefined;
+  EntryTypes: undefined;
+  TypeFields: { type: EntryType };
 };

@@ -4,6 +4,13 @@ What's new in each release, newest first. The GitHub release notes are made from
 merged pull request (`app/scripts/release-notes.mjs`); this file keeps the whole history in one place and is updated
 in every PR.
 
+## 1.7.0
+
+- Custom fields: add your own fields to any entry (CIF, Branch, MMID, UID, CKYC no…), each Text, Number or Hidden. Hidden fields stay as dots until you tap Show.
+- Each type starts with a list of fields you can change in Settings › Entry types: rename, add, remove, reorder, or reset. Banking now starts with Account number, IFSC, Customer ID, CIF, Branch, Branch code, MMID, UID (Aadhaar, hidden) and CKYC no.
+- Search also finds entries by their field values (never by hidden ones).
+- New Settings › About & what's new: the version you have and what changed in each release.
+
 ## 1.6.0
 
 - Removed the password generator (the Generator tab and the Generate button). Type or paste passwords; the strength bar still shows how strong they are.

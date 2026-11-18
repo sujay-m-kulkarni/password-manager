@@ -1,6 +1,7 @@
 import { open, type DB, type Scalar } from '@op-engineering/op-sqlite';
 import { cardProblem, digits, type Card, type CardKind } from '../cards';
-import { SET_TYPE_FROM_FOLDER, serializeFields, type EntryType, type TypeFields } from '../entryTypes';
+import { fieldSearchText, fieldsProblem, serializeCustomFields, type CustomField } from '../customFields';
+import { SET_TYPE_FROM_FOLDER, type EntryType } from '../entryTypes';
 import { Buffer } from '../security/crypto';
 
 export const VAULT_DB = 'vault.sqlite';
@@ -126,6 +127,9 @@ const MIGRATIONS: string[][] = [
     `CREATE INDEX idx_pins_entry ON pins(entry_id)`,
     ...PIN_ENTRIES_TO_PINS,
   ],
+  // v4 (1.7.0): custom fields. Search looks in field_text: the values of fields that are not Hidden
+  // (1.5/1.6 fields were never hidden, so their stored text serves as a start).
+  [`ALTER TABLE entries ADD COLUMN field_text TEXT`, `UPDATE entries SET field_text = fields`],
 ];
 
 function migrate(db: DB) {
@@ -166,8 +170,10 @@ export type Entry = {
   id: number;
   kind: EntryKind;
   type: EntryType;
-  /** JSON of the type's extra fields (account number, IFSC, client ID…), or null. */
+  /** JSON list of the entry's named fields (see customFields.ts), or null. */
   fields: string | null;
+  /** Values of the non-hidden fields, for search. */
+  field_text?: string | null;
   folder_id: number | null;
   title: string;
   username: string | null;
@@ -191,7 +197,8 @@ export type EntryInput = {
   pins?: EntryPin[];
   /** Defaults to 'other'. */
   type?: EntryType;
-  fields?: TypeFields;
+  /** The entry's named fields, in order; empty ones are not saved. */
+  fields?: CustomField[];
   /** When given, replaces the entry's cards (Banking only; ignored for other types). */
   cards?: Card[];
   folder_id: number | null;
@@ -276,9 +283,11 @@ export function listEntries(
   const q = search.trim();
   if (q) {
     // Search is done inside the decrypted DB connection; nothing is indexed in plaintext elsewhere.
-    where.push("(e.title LIKE ? ESCAPE '\\' OR e.username LIKE ? ESCAPE '\\' OR e.url LIKE ? ESCAPE '\\')");
+    where.push(
+      "(e.title LIKE ? ESCAPE '\\' OR e.username LIKE ? ESCAPE '\\' OR e.url LIKE ? ESCAPE '\\' OR e.field_text LIKE ? ESCAPE '\\')",
+    );
     const like = `%${q.replace(/[\\%_]/g, m => '\\' + m)}%`;
-    params.push(like, like, like);
+    params.push(like, like, like, like);
   }
   if (folderId != null) {
     where.push('e.folder_id = ?');
@@ -370,10 +379,16 @@ export function saveEntry(db: DB, input: EntryInput, id?: number): number {
   if (!input.password && (pins ?? (id != null ? listPins(db, id) : [])).length === 0 && (cards ?? []).length === 0) {
     throw new Error('Add a password, a PIN or a card.');
   }
-  const fields = serializeFields(type, input.fields ?? {});
+  const custom = input.fields ?? [];
+  const fieldProblem = fieldsProblem(custom);
+  if (fieldProblem) {
+    throw new Error(fieldProblem);
+  }
+  const fields = serializeCustomFields(custom);
+  const fieldText = fieldSearchText(custom.filter(f => f.name.trim() && f.value.trim()));
   db.executeSync('BEGIN');
   try {
-    const entryId = writeEntry(db, input, type, fields, now, id);
+    const entryId = writeEntry(db, input, type, fields, fieldText, now, id);
     if (pins) {
       db.executeSync('DELETE FROM pins WHERE entry_id = ?', [entryId]);
       for (const p of pins) {
@@ -403,11 +418,20 @@ export function saveEntry(db: DB, input: EntryInput, id?: number): number {
   }
 }
 
-function writeEntry(db: DB, input: EntryInput, type: EntryType, fields: string | null, now: number, id?: number): number {
+function writeEntry(
+  db: DB,
+  input: EntryInput,
+  type: EntryType,
+  fields: string | null,
+  fieldText: string | null,
+  now: number,
+  id?: number,
+): number {
   const common: Scalar[] = [
     'login',
     type,
     fields,
+    fieldText,
     input.folder_id,
     input.title.trim(),
     orNull(input.username),
@@ -418,16 +442,16 @@ function writeEntry(db: DB, input: EntryInput, type: EntryType, fields: string |
   ];
   if (id != null) {
     db.executeSync(
-      `UPDATE entries SET kind = ?, type = ?, fields = ?, folder_id = ?, title = ?, username = ?, password = ?,
+      `UPDATE entries SET kind = ?, type = ?, fields = ?, field_text = ?, folder_id = ?, title = ?, username = ?, password = ?,
        url = ?, notes = ?, favorite = ?, updated_at = ? WHERE id = ?`,
       [...common, now, id],
     );
     return id;
   }
   const res = db.executeSync(
-    `INSERT INTO entries (kind, type, fields, folder_id, title, username, password, url, notes, favorite,
+    `INSERT INTO entries (kind, type, fields, field_text, folder_id, title, username, password, url, notes, favorite,
        created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [...common, now, now],
   );
   return Number(res.insertId);

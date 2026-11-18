@@ -6,12 +6,13 @@
     "lint": "eslint .",
     "start": "react-native start",
     "test": "jest",
-    "test:scripts": "node --test scripts/next-version.test.mjs scripts/native-deps.test.mjs scripts/release-notes.test.mjs scripts/opsqlite-patch.test.mjs",
+    "test:scripts": "node --test scripts/next-version.test.mjs scripts/native-deps.test.mjs scripts/release-notes.test.mjs scripts/opsqlite-patch.test.mjs scripts/changelog-to-app.test.mjs",
     "typecheck": "tsc --noEmit",
     "android:run": "react-native run-android",
     "android:apk": "node scripts/android-apk.mjs",
     "android:apk:release": "node scripts/android-apk.mjs --release",
-    "postinstall": "patch-package"
+    "postinstall": "patch-package",
+    "changelog": "node scripts/changelog-to-app.mjs"
   },
   "dependencies": {
     "@op-engineering/op-sqlite": "19.0.3",

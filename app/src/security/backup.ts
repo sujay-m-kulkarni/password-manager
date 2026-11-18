@@ -16,6 +16,7 @@ import QuickCrypto from 'react-native-quick-crypto';
 import { PIN_ENTRIES_TO_PINS, getSetting, setSetting, type Entry, type Folder } from '../db/database';
 import { Buffer, unwrap, wipe, wrap, type Wrapped } from './crypto';
 import { readHeader, unwrapWithPassword, unwrapWithRecovery, type Header } from './keyHierarchy';
+import { fieldSearchText, parseCustomFields } from '../customFields';
 import { SET_TYPE_FROM_FOLDER } from '../entryTypes';
 
 export const BACKUP_FORMAT = 'vault-backup';
@@ -179,6 +180,8 @@ export function restoreInto(db: DB, data: BackupData) {
         e.kind ?? 'login',
         e.type ?? null,
         e.fields ?? null,
+        // Worked out again rather than trusted: values of fields that are not Hidden.
+        fieldSearchText(parseCustomFields(e.fields)),
         e.folder_id ?? null,
         e.title,
         e.username ?? null,
@@ -190,9 +193,9 @@ export function restoreInto(db: DB, data: BackupData) {
         e.updated_at,
       ];
       db.executeSync(
-        `INSERT INTO entries (id, kind, type, fields, folder_id, title, username, password, url, notes, favorite,
-           created_at, updated_at)
-         VALUES (?, ?, coalesce(?, 'other'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO entries (id, kind, type, fields, field_text, folder_id, title, username, password, url, notes,
+           favorite, created_at, updated_at)
+         VALUES (?, ?, coalesce(?, 'other'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         params,
       );
     }
