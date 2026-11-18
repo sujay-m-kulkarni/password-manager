@@ -330,6 +330,118 @@ test('one Banking entry with a login, a UPI PIN and a debit card: read-only firs
   });
 });
 
+test('custom fields: fill a starting field, add a hidden one, find the entry by a field value', async () => {
+  let r!: ReactTestRenderer.ReactTestRenderer;
+  await act(async () => {
+    r = ReactTestRenderer.create(<App />);
+    await wait(50);
+  });
+  await act(async () => {
+    r.root.findAllByType(TextInput)[0].props.onChangeText('seven quiet blue lanterns');
+  });
+  await pressButton(r, 'Unlock');
+  const input = (label: string) => r.root.findAllByType(TextInput).find(i => i.props.accessibilityLabel === label)!;
+
+  await act(async () => {
+    r.root.findAll(n => n.props.accessibilityLabel === 'Add password' && typeof n.props.onPress === 'function')[0].props.onPress();
+    await wait(50);
+  });
+  await act(async () => {
+    r.root.findAll(n => n.props.accessibilityRole === 'radio' && n.findAll(x => x.props.children === 'Banking').length > 0)[0].props.onPress();
+  });
+  // Banking's starting fields are on the Login tab.
+  expect(input('CIF')).toBeTruthy();
+  expect(input('UID (Aadhaar)').props.secureTextEntry).toBe(true);
+  await act(async () => {
+    input('Title').props.onChangeText('Canara Bank');
+    input('Password').props.onChangeText('C@nara#2026!');
+    input('CIF').props.onChangeText('77001122');
+  });
+  // + Add field → a suggested name (Profile password is Hidden).
+  await pressButton(r, '+ Add field');
+  await pressButton(r, 'Profile password');
+  await pressButton(r, 'Add');
+  await act(async () => {
+    input('Profile password').props.onChangeText('pr0file!');
+  });
+  expect(input('Profile password').props.secureTextEntry).toBe(true);
+  await pressButton(r, 'Save');
+
+  // Search by the CIF finds it; the read-only page shows CIF and hides the profile password.
+  await act(async () => {
+    input('Search passwords').props.onChangeText('77001122');
+    await wait(50);
+  });
+  await pressButton(r, 'Canara Bank');
+  let t = textOf(r);
+  expect(t).toContain('77001122');
+  expect(t).toContain('PROFILE PASSWORD');
+  expect(t).not.toContain('pr0file!');
+  expect(t).not.toContain('BRANCH CODE'); // empty starting fields are not saved
+  const show = r.root.findAll(n => n.props.accessibilityLabel === 'Show Profile password' && typeof n.props.onPress === 'function')[0];
+  await act(async () => {
+    show.props.onPress();
+  });
+  expect(textOf(r)).toContain('pr0file!');
+
+  await act(async () => {
+    r.unmount();
+    await wait(50);
+  });
+});
+
+test('Settings: change a type\'s starting fields; About shows the version history', async () => {
+  NativeModules.CrashReport = {
+    takeLastCrash: jest.fn().mockResolvedValue(null),
+    getAppVersion: jest.fn().mockResolvedValue({ name: '1.7.0', code: 1 }),
+  };
+  let r!: ReactTestRenderer.ReactTestRenderer;
+  await act(async () => {
+    r = ReactTestRenderer.create(<App />);
+    await wait(50);
+  });
+  await act(async () => {
+    r.root.findAllByType(TextInput)[0].props.onChangeText('seven quiet blue lanterns');
+  });
+  await pressButton(r, 'Unlock');
+  // Bottom bar: React Navigation labels its buttons "Settings, tab, 2 of 2".
+  const settingsTab = r.root.findAll(
+    n => typeof n.props.onPress === 'function' && String(n.props.accessibilityLabel ?? '').startsWith('Settings'),
+  )[0];
+  await act(async () => {
+    settingsTab.props.onPress();
+    await wait(50);
+  });
+  await pressButton(r, 'Entry types and their fields');
+  expect(textOf(r)).toContain('9 fields'); // Banking
+  // The vault list behind has a "Social media" chip too: press the row on the top screen (last match).
+  const rows = r.root.findAll(
+    n => n.props.accessibilityRole === 'button' && typeof n.props.onPress === 'function' && n.findAll(t => t.props.children === 'Social media').length > 0,
+  );
+  await act(async () => {
+    rows[rows.length - 1].props.onPress();
+    await wait(300);
+  });
+  await pressButton(r, '+ Add field');
+  await act(async () => {
+    r.root.findAllByType(TextInput).find(i => i.props.accessibilityLabel === 'Field 1')!.props.onChangeText('Handle');
+  });
+  await pressButton(r, 'Save');
+  expect(textOf(r)).toContain('1 field');
+
+  await pressButton(r, '‹ Back');
+  await pressButton(r, "About & what's new");
+  const t = textOf(r);
+  expect(t).toContain('Vault 1.7.0');
+  expect(t).toContain('Installed');
+  expect(t).toContain('Custom fields: add your own fields');
+
+  await act(async () => {
+    r.unmount();
+    await wait(50);
+  });
+});
+
 test('an error while drawing a screen shows the report instead of closing the app', async () => {
   const saveReport = jest.fn();
   NativeModules.CrashReport = { saveReport, dismissCrash: jest.fn(), takeLastCrash: jest.fn().mockResolvedValue(null) };

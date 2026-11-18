@@ -31,7 +31,19 @@ import {
   type EntryPin,
   type PinFormat,
 } from '../../db/database';
-import { ENTRY_TYPES, parseFields, typeInfo, type EntryType, type TypeFields } from '../../entryTypes';
+import {
+  FIELD_KINDS,
+  FIELD_NAME_MAX,
+  FIELD_SUGGESTIONS,
+  fieldsProblem,
+  formFields,
+  getTypeFields,
+  parseCustomFields,
+  upperCaseField,
+  type CustomField,
+  type FieldKind,
+} from '../../customFields';
+import { ENTRY_TYPES, typeInfo, type EntryType } from '../../entryTypes';
 import { useDb } from '../../store/session';
 import { colors, folderColor, fonts } from '../../theme';
 import { estimateStrength } from '../../utils/strength';
@@ -60,7 +72,15 @@ export function EntryForm({
 }: Props) {
   const db = useDb();
   const [type, setType] = useState<EntryType>(existing?.type ?? initialType ?? 'other');
-  const [fields, setFields] = useState<TypeFields>(() => (existing ? parseFields(existing.type, existing.fields) : {}));
+  // The entry's own fields, then the type's starting fields it doesn't have yet (empty ones aren't saved).
+  const [fields, setFields] = useState<CustomField[]>(() =>
+    formFields(parseCustomFields(existing?.fields), getTypeFields(db, existing?.type ?? initialType ?? 'other')),
+  );
+  const changeType = (next: EntryType) => {
+    setType(next);
+    // Keep what was typed; swap the empty starting fields for the new type's.
+    setFields(prev => formFields(prev.filter(f => f.value.trim()), getTypeFields(db, next)));
+  };
   const [cards, setCards] = useState<Card[]>(existingCards);
   const [pins, setPins] = useState<EntryPin[]>(() =>
     existingPins.length || initialTab !== 'pins' ? existingPins : [{ label: '', value: '' }],
@@ -91,8 +111,9 @@ export function EntryForm({
   const usedPins = pins.filter(p => p.value.length > 0 || p.label.trim().length > 0);
   const cardsOk = !showCards || cards.every(c => cardProblem(c) == null);
   const pinsOk = usedPins.every(p => pinProblem(p) == null);
+  const fieldsOk = fieldsProblem(fields) == null;
   const hasSecret = password.length > 0 || usedPins.length > 0 || (showCards && cards.length > 0);
-  const canSave = title.trim().length > 0 && hasSecret && cardsOk && pinsOk;
+  const canSave = title.trim().length > 0 && hasSecret && cardsOk && pinsOk && fieldsOk;
   const strength = estimateStrength(password);
   const currentTab: FormTab = tab === 'cards' && !showCards ? 'login' : tab;
 
@@ -143,7 +164,7 @@ export function EntryForm({
             <Text style={s.label}>Type</Text>
             <View style={s.chips} accessibilityRole="radiogroup">
               {ENTRY_TYPES.map(t => (
-                <TypeChip key={t.key} label={t.label} color={t.color} active={type === t.key} onPress={() => setType(t.key)} />
+                <TypeChip key={t.key} label={t.label} color={t.color} active={type === t.key} onPress={() => changeType(t.key)} />
               ))}
             </View>
           </View>
@@ -189,20 +210,7 @@ export function EntryForm({
                 keyboardType="url"
                 importantForAutofill="no"
               />
-              {info.fields.map(f => (
-                <Field
-                  key={`${type}-${f.key}`}
-                  label={f.label}
-                  value={fields[f.key] ?? ''}
-                  onChangeText={t => setFields(prev => ({ ...prev, [f.key]: f.upper ? t.toUpperCase() : t }))}
-                  placeholder={f.placeholder}
-                  keyboardType={f.keyboard ?? 'default'}
-                  autoCapitalize={f.upper ? 'characters' : 'none'}
-                  maxLength={f.maxLength}
-                  importantForAutofill="no"
-                  autoCorrect={false}
-                />
-              ))}
+              <FieldsEditor fields={fields} onChange={setFields} />
             </>
           )}
 
@@ -244,6 +252,101 @@ const placeholderFor = (t: EntryType) =>
         : t === 'email'
           ? 'e.g. Gmail'
           : 'e.g. Wi-Fi, Netflix';
+
+function FieldsEditor({
+  fields,
+  onChange,
+}: {
+  fields: CustomField[];
+  onChange: React.Dispatch<React.SetStateAction<CustomField[]>>;
+}) {
+  const [adding, setAdding] = useState<{ name: string; kind: FieldKind } | null>(null);
+  const update = (i: number, patch: Partial<CustomField>) => onChange(prev => prev.map((f, j) => (j === i ? { ...f, ...patch } : f)));
+  const taken = (name: string) => fields.some(f => f.name.trim().toLowerCase() === name.trim().toLowerCase());
+  const add = () => {
+    if (!adding || !adding.name.trim() || taken(adding.name)) {
+      return;
+    }
+    onChange(prev => [...prev, { name: adding.name.trim(), kind: adding.kind, value: '' }]);
+    setAdding(null);
+  };
+  const problem = fieldsProblem(fields);
+  return (
+    <View style={{ gap: 12 }}>
+      {fields.map((f, i) => (
+        <FieldRow
+          key={`${f.name}-${i}`}
+          field={f}
+          onChange={v => update(i, { value: v })}
+          onRemove={() => onChange(prev => prev.filter((_, j) => j !== i))}
+        />
+      ))}
+      {problem && <Text style={[s.hint, s.hintBad]}>{problem}</Text>}
+      {adding ? (
+        <View style={s.cardBox}>
+          <Field
+            label="Field name"
+            value={adding.name}
+            onChangeText={t => setAdding({ ...adding, name: t })}
+            placeholder="e.g. CIF, Branch, MMID"
+            maxLength={FIELD_NAME_MAX}
+            autoFocus
+            importantForAutofill="no"
+          />
+          {!adding.name.trim() && (
+            <View style={s.chips}>
+              {FIELD_SUGGESTIONS.filter(x => !taken(x.name)).map(x => (
+                <Pressable key={x.name} accessibilityRole="button" onPress={() => setAdding({ name: x.name, kind: x.kind })} style={s.suggest}>
+                  <Text style={s.suggestText}>{x.name}</Text>
+                </Pressable>
+              ))}
+            </View>
+          )}
+          <View style={s.chips} accessibilityRole="radiogroup">
+            {FIELD_KINDS.map(k => (
+              <FormatChip key={k.kind} label={k.label} active={adding.kind === k.kind} onPress={() => setAdding({ ...adding, kind: k.kind })} />
+            ))}
+          </View>
+          {taken(adding.name) && <Text style={[s.hint, s.hintBad]}>This entry already has a field with that name.</Text>}
+          <View style={s.pwTools}>
+            <Button title="Add" small onPress={add} disabled={!adding.name.trim() || taken(adding.name)} />
+            <Button title="Cancel" small variant="ghost" onPress={() => setAdding(null)} />
+          </View>
+        </View>
+      ) : (
+        <Button title="+ Add field" variant="soft" onPress={() => setAdding({ name: '', kind: 'text' })} />
+      )}
+    </View>
+  );
+}
+
+function FieldRow({ field, onChange, onRemove }: { field: CustomField; onChange: (v: string) => void; onRemove: () => void }) {
+  const [show, setShow] = useState(false);
+  const hidden = field.kind === 'hidden';
+  const upper = upperCaseField(field.name);
+  return (
+    <View style={{ gap: 6 }}>
+      <View style={s.fieldRow}>
+        <View style={{ flex: 1 }}>
+          <Field
+            label={field.name}
+            value={field.value}
+            onChangeText={t => onChange(upper ? t.toUpperCase() : t)}
+            keyboardType={field.kind === 'number' ? 'number-pad' : 'default'}
+            autoCapitalize={upper ? 'characters' : 'none'}
+            importantForAutofill="no"
+            autoCorrect={false}
+            {...(hidden ? { ...secretInputProps, secureTextEntry: !show } : {})}
+          />
+        </View>
+        {hidden && <Button title={show ? 'Hide' : 'Show'} variant="soft" small onPress={() => setShow(v => !v)} />}
+        <Pressable accessibilityRole="button" accessibilityLabel={`Remove ${field.name}`} onPress={onRemove} style={s.removeBtn}>
+          <Text style={s.removeText}>×</Text>
+        </Pressable>
+      </View>
+    </View>
+  );
+}
 
 function PinsEditor({ pins, onChange }: { pins: EntryPin[]; onChange: React.Dispatch<React.SetStateAction<EntryPin[]>> }) {
   const update = (i: number, patch: Partial<EntryPin>) => onChange(prev => prev.map((p, j) => (j === i ? { ...p, ...patch } : p)));
@@ -459,6 +562,9 @@ const s = StyleSheet.create({
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chip: { minHeight: 40, paddingHorizontal: 14, borderRadius: 20, justifyContent: 'center' },
   chipText: { fontFamily: fonts.bold, fontSize: 14 },
+  fieldRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 6 },
+  removeBtn: { width: 44, height: 52, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
+  removeText: { fontFamily: fonts.bold, fontSize: 22, color: colors.muted },
   cardBox: { backgroundColor: colors.surface, borderRadius: 20, padding: 14, gap: 12, borderWidth: 1, borderColor: colors.border },
   cardTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   cardRow: { flexDirection: 'row', gap: 10 },

@@ -11,7 +11,8 @@ import { Icon, type IconName } from '../../components/Icon';
 import { Button, StrengthBar } from '../../components/ui';
 import { cardNetwork, groupCardNumber, maskCardNumber, type Card } from '../../cards';
 import { deleteEntry, getEntry, groupPin, listCards, listPins, setFavorite, type EntryPin } from '../../db/database';
-import { parseFields, typeInfo } from '../../entryTypes';
+import { parseCustomFields, type CustomField } from '../../customFields';
+import { typeInfo } from '../../entryTypes';
 import type { RootStackParamList } from '../../navigation/types';
 import { copyWithAutoClear } from '../../security/clipboard';
 import { useDb, useSession } from '../../store/session';
@@ -60,7 +61,7 @@ export function EntryDetailScreen({ navigation, route }: Props) {
   const c = folderColor(t.color);
   const hasPassword = entry.password.length > 0;
   const strength = estimateStrength(entry.password);
-  const fields = parseFields(entry.type, entry.fields);
+  const fields = parseCustomFields(entry.fields);
   const copy = (text: string) => copyWithAutoClear(text, clipboardSec);
 
   const onDelete = () =>
@@ -148,13 +149,9 @@ export function EntryDetailScreen({ navigation, route }: Props) {
             </>
           )}
           {!!entry.url && <Row label="Website" value={entry.url} />}
-          {t.fields
-            .filter(f => fields[f.key])
-            .map(f => (
-              <Row key={f.key} label={f.label} value={fields[f.key]} mono={f.keyboard === 'number-pad'}>
-                <SmallBtn label={`Copy ${f.label}`} text="Copy" onPress={() => copy(fields[f.key])} />
-              </Row>
-            ))}
+          {fields.map((f, i) => (
+            <FieldView key={`${f.name}-${i}`} field={f} onCopy={copy} />
+          ))}
 
           {pins.length > 0 && (
             <>
@@ -183,6 +180,20 @@ export function EntryDetailScreen({ navigation, route }: Props) {
       </ScrollView>
       <ClipboardToast bottom={24} />
     </SafeAreaView>
+  );
+}
+
+/** One custom field: Copy; a Hidden one shows dots until Show. */
+function FieldView({ field, onCopy }: { field: CustomField; onCopy: (text: string) => void }) {
+  const [shown, setShown] = useState(false);
+  const hidden = field.kind === 'hidden';
+  return (
+    <Row label={field.name} value={hidden && !shown ? '•'.repeat(Math.min(field.value.length, 12)) : field.value} mono={field.kind !== 'text'}>
+      {hidden && (
+        <SmallBtn label={shown ? `Hide ${field.name}` : `Show ${field.name}`} text={shown ? 'Hide' : 'Show'} onPress={() => setShown(v => !v)} muted />
+      )}
+      <SmallBtn label={`Copy ${field.name}`} text="Copy" onPress={() => onCopy(field.value)} />
+    </Row>
   );
 }
 

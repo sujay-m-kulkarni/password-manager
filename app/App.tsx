@@ -19,6 +19,8 @@ import { AutoLock } from './src/security/AutoLock';
 import { useSession } from './src/store/session';
 import { colors, fonts } from './src/theme';
 import { Icon, type IconName } from './src/components/Icon';
+import { AboutScreen } from './src/features/settings/AboutScreen';
+import { EntryTypesScreen, TypeFieldsScreen } from './src/features/settings/EntryTypesScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator<TabParamList>();
@@ -94,10 +96,13 @@ function VaultApp() {
                 <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />
                 <Stack.Screen name="RecoveryKey" component={RecoveryKeyScreen} />
                 <Stack.Screen name="Restore" component={RestoreScreen} />
+                <Stack.Screen name="EntryTypes" component={EntryTypesScreen} />
+                <Stack.Screen name="TypeFields" component={TypeFieldsScreen} />
               </>
             )}
             {/* Readable before unlocking: instructions only, no vault data. */}
             <Stack.Screen name="Help" component={HelpScreen} />
+            <Stack.Screen name="About" component={AboutScreen} />
           </Stack.Navigator>
         </NavigationContainer>
       </AutoLock>

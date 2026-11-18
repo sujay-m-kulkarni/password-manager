@@ -95,8 +95,8 @@ describe('saveEntry with PINs', () => {
     const { db, calls } = fakeDb();
     expect(saveEntry(db, base)).toBe(7);
     const insert = calls.find(c => c.sql.includes('INSERT INTO entries'))!;
-    // kind (always 'login' now), type, fields, folder, title, username, password, url, notes, favorite
-    expect(insert.params.slice(0, 10)).toEqual(['login', 'other', null, null, 'Phone lock', null, '', null, null, 0]);
+    // kind (always 'login' now), type, fields, field_text, folder, title, username, password, url, notes, favorite
+    expect(insert.params.slice(0, 11)).toEqual(['login', 'other', null, null, null, 'Phone lock', null, '', null, null, 0]);
     const pin = calls.find(c => c.sql.includes('INSERT INTO pins'))!;
     expect(pin.params.slice(0, 3)).toEqual([7, 'Phone lock', '482913']);
   });
@@ -118,7 +118,7 @@ describe('saveEntry with PINs', () => {
     const { db, calls } = fakeDb();
     saveEntry(db, { ...base, username: 'me', password: 'not a pin!', url: 'https://bank.in' }, 3);
     const update = calls.find(c => c.sql.includes('UPDATE entries'))!;
-    expect(update.params.slice(5, 8)).toEqual(['me', 'not a pin!', 'https://bank.in']);
+    expect(update.params.slice(6, 9)).toEqual(['me', 'not a pin!', 'https://bank.in']);
     expect(update.params[update.params.length - 1]).toBe(3);
   });
 });

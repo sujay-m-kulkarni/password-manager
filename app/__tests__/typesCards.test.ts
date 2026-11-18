@@ -25,7 +25,7 @@ import {
   saveEntry,
   type EntryInput,
 } from '../src/db/database';
-import { parseFields, serializeFields } from '../src/entryTypes';
+import { parseCustomFields } from '../src/customFields';
 import { createBackup, openBackup, parseBackup, restoreInto } from '../src/security/backup';
 import { Buffer } from '../src/security/crypto';
 import { createVault } from '../src/security/keyHierarchy';
@@ -98,14 +98,22 @@ describe('upgrading an existing vault', () => {
 });
 
 describe('type fields', () => {
-  it('keeps only the fields of the entry\'s type', async () => {
+  it('saves named fields in order and drops empty ones', async () => {
     const { db } = await createVault(PW);
-    const id = saveEntry(db, login({ fields: { account_number: ' 50100123456789 ', ifsc: 'HDFC0001234', client_id: 'nope' } }));
-    expect(parseFields('banking', getEntry(db, id)!.fields)).toEqual({ account_number: '50100123456789', ifsc: 'HDFC0001234' });
-
-    saveEntry(db, login({ type: 'investments', title: 'Zerodha', fields: { client_id: 'AB1234', ifsc: 'drop me' } }), id);
-    expect(parseFields('investments', getEntry(db, id)!.fields)).toEqual({ client_id: 'AB1234' });
-    expect(serializeFields('social', { anything: 'x' })).toBeNull();
+    const id = saveEntry(
+      db,
+      login({
+        fields: [
+          { name: 'Account number', value: ' 50100123456789 ', kind: 'number' },
+          { name: 'IFSC', value: 'HDFC0001234', kind: 'text' },
+          { name: 'CIF', value: '', kind: 'text' },
+        ],
+      }),
+    );
+    expect(parseCustomFields(getEntry(db, id)!.fields)).toEqual([
+      { name: 'Account number', value: '50100123456789', kind: 'number' },
+      { name: 'IFSC', value: 'HDFC0001234', kind: 'text' },
+    ]);
   });
 
   it('filters the list by type', async () => {
@@ -161,7 +169,7 @@ describe('cards in a Banking entry', () => {
 describe('backups', () => {
   it('carry types, fields and cards', async () => {
     const { db, dek } = await createVault(PW);
-    saveEntry(db, login({ fields: { ifsc: 'HDFC0001234' }, cards: [card()] }));
+    saveEntry(db, login({ fields: [{ name: 'IFSC', value: 'HDFC0001234', kind: 'text' }], cards: [card()] }));
     const opened = (await openBackup(parseBackup(createBackup(db, dek).text), PW))!;
     expect(opened.data.cards).toHaveLength(1);
 
@@ -169,7 +177,7 @@ describe('backups', () => {
     restoreInto(db, opened.data);
     const [e] = listEntries(db, '', null);
     expect(e).toMatchObject({ title: 'HDFC Bank', type: 'banking', cards: 1 });
-    expect(parseFields('banking', getEntry(db, e.id)!.fields)).toEqual({ ifsc: 'HDFC0001234' });
+    expect(parseCustomFields(getEntry(db, e.id)!.fields)).toEqual([{ name: 'IFSC', value: 'HDFC0001234', kind: 'text' }]);
   });
 
   it('a backup from before types gets types from its folders', async () => {

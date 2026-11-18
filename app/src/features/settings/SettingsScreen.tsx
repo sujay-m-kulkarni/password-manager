@@ -176,6 +176,11 @@ export function SettingsScreen() {
           )}
         </View>
 
+        <SectionLabel>Entries</SectionLabel>
+        <View style={s.list}>
+          <NavRow label="Entry types and their fields" onPress={() => navigation.navigate('EntryTypes')} />
+        </View>
+
         <SectionLabel>Security</SectionLabel>
         <View style={s.card}>
           <Text style={s.rowLabel}>Auto-lock after inactivity</Text>
@@ -245,6 +250,7 @@ export function SettingsScreen() {
         <SectionLabel>Help</SectionLabel>
         <View style={s.list}>
           <NavRow label="How to use Vault" onPress={() => navigation.navigate('Help')} />
+          <NavRow label="About & what's new" value={version?.name} onPress={() => navigation.navigate('About')} />
         </View>
 
         <Button title="Lock now" variant="dark" onPress={() => lock()} />
