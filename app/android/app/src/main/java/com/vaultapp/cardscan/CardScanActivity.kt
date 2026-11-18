@@ -36,7 +36,9 @@ import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.core.content.ContextCompat
 import com.google.mlkit.vision.common.InputImage
+import com.google.mlkit.common.sdkinternal.MlKitContext
 import com.google.mlkit.vision.text.TextRecognition
+import com.google.mlkit.vision.text.TextRecognizer
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
@@ -53,7 +55,8 @@ import java.util.concurrent.Executors
  */
 class CardScanActivity : ComponentActivity() {
   private val executor: ExecutorService = Executors.newSingleThreadExecutor()
-  private val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
+  // Created in onCreate, not here: ML Kit needs its context set up first (1.8.0 crashed on this).
+  private var recognizer: TextRecognizer? = null
   private val seen = HashMap<String, Int>()
   private val lines = LinkedHashSet<String>()
   private lateinit var preview: PreviewView
@@ -67,6 +70,15 @@ class CardScanActivity : ComponentActivity() {
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
     window.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)
+
+    // Never let the scanner close the app: if text recognition can't start, say so and go back.
+    try {
+      MlKitContext.initializeIfNeeded(applicationContext)
+      recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
+    } catch (e: Throwable) {
+      finishWith(null, ERROR_UNAVAILABLE)
+      return
+    }
 
     val root = FrameLayout(this).apply { setBackgroundColor(Color.BLACK) }
     preview = PreviewView(this).apply { scaleType = PreviewView.ScaleType.FILL_CENTER }
@@ -145,8 +157,13 @@ class CardScanActivity : ComponentActivity() {
       image.close()
       return
     }
+    val rec = recognizer
+    if (rec == null) {
+      image.close()
+      return
+    }
     val input = InputImage.fromMediaImage(media, image.imageInfo.rotationDegrees)
-    recognizer.process(input)
+    rec.process(input)
       .addOnSuccessListener { text ->
         val frameLines = text.textBlocks.flatMap { b -> b.lines.map { it.text.trim() } }.filter { it.isNotEmpty() }
         if (lines.size < MAX_LINES) lines.addAll(frameLines)
@@ -187,7 +204,7 @@ class CardScanActivity : ComponentActivity() {
   override fun onDestroy() {
     super.onDestroy()
     executor.shutdown()
-    recognizer.close()
+    recognizer?.close()
   }
 
   private fun dp(v: Int): Int = (v * resources.displayMetrics.density).toInt()
@@ -225,6 +242,7 @@ class CardScanActivity : ComponentActivity() {
     const val EXTRA_PROMPT = "prompt"
     const val ERROR_PERMISSION = "permission"
     const val ERROR_CAMERA = "camera"
+    const val ERROR_UNAVAILABLE = "unavailable"
     private const val MAX_LINES = 200
   }
 }

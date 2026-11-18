@@ -3,6 +3,13 @@ export type Release = { version: string; points: string[] };
 
 export const CHANGELOG: Release[] = [
   {
+    "version": "1.8.1",
+    "points": [
+      "Fixed: Scan a card closed the app instead of opening the camera.",
+      "If scanning can't start on a phone, Vault now says so and you can type the details instead."
+    ]
+  },
+  {
     "version": "1.8.0",
     "points": [
       "Scan a card: on the Cards tab, tap Scan a card and Vault reads the card number, expiry and name with the camera. Cards that print details on the back work too: scan one side, then tap Scan the other side for whatever is missing.",
