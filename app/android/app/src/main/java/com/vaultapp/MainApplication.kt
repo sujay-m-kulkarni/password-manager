@@ -8,6 +8,7 @@ import com.facebook.react.ReactNativeApplicationEntryPoint.loadReactNative
 import com.facebook.react.defaults.DefaultReactHost.getDefaultReactHost
 import com.vaultapp.crashreport.CrashReportModule
 import com.vaultapp.crashreport.CrashReportPackage
+import com.vaultapp.cardscan.CardScanPackage
 import com.vaultapp.files.VaultFilesPackage
 import com.vaultapp.secureclipboard.SecureClipboardPackage
 
@@ -21,6 +22,7 @@ class MainApplication : Application(), ReactApplication {
           add(SecureClipboardPackage())
           add(CrashReportPackage())
           add(VaultFilesPackage())
+          add(CardScanPackage())
         },
     )
   }

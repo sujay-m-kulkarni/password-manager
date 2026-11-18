@@ -44,9 +44,10 @@ import {
   type FieldKind,
 } from '../../customFields';
 import { ENTRY_TYPES, typeInfo, type EntryType } from '../../entryTypes';
-import { useDb } from '../../store/session';
+import { useDb, useSession } from '../../store/session';
 import { colors, folderColor, fonts } from '../../theme';
 import { estimateStrength } from '../../utils/strength';
+import { OTHER_SIDE_PROMPT, canScanCards, mergeScan, missingFromScan, scanCard } from '../../cardScan';
 
 export type FormTab = 'login' | 'pins' | 'cards';
 
@@ -428,6 +429,68 @@ function CardsEditor({ cards, onChange }: { cards: Card[]; onChange: React.Dispa
   // Functional updates: several quick changes in a row must not overwrite each other.
   const update = (i: number, patch: Partial<Card>) => onChange(prev => prev.map((c, j) => (j === i ? { ...c, ...patch } : c)));
   const add = (kind: CardKind) => onChange(prev => [...prev, emptyCard(kind)]);
+  const withAutoLockPaused = useSession(st => st.withAutoLockPaused);
+  const [scanning, setScanning] = useState(false);
+  const [scanNote, setScanNote] = useState<{ text: string; bad?: boolean } | null>(null);
+  // The card just scanned, while it still lacks something the other side may show.
+  const [otherSide, setOtherSide] = useState<number | null>(null);
+
+  const noteFor = (missing: string[]) =>
+    setScanNote({
+      text: missing.length
+        ? `Scanned. Still missing: ${missing.join(', ')}. It may be on the other side of the card.`
+        : 'Scanned. Check the details, choose Debit or Credit, and add the card PIN yourself.',
+    });
+
+  // The camera opens as its own screen: pause auto-lock so Vault doesn't lock while it is open.
+  const scan = async () => {
+    setScanning(true);
+    setScanNote(null);
+    try {
+      const card = await withAutoLockPaused(() => scanCard());
+      if (card) {
+        const index = cards.length;
+        onChange(prev => [
+          ...prev,
+          { ...emptyCard(card.kind ?? 'debit'), number: card.number, expiry: card.expiry, name: card.name },
+        ]);
+        const missing = missingFromScan(card);
+        setOtherSide(missing.length ? index : null);
+        noteFor(missing);
+      }
+    } catch (e) {
+      setScanNote({ text: e instanceof Error ? e.message : 'Could not scan the card.', bad: true });
+    } finally {
+      setScanning(false);
+    }
+  };
+
+  const scanOtherSide = async () => {
+    if (otherSide == null || !cards[otherSide]) {
+      return;
+    }
+    setScanning(true);
+    try {
+      const side = await withAutoLockPaused(() => scanCard(OTHER_SIDE_PROMPT));
+      if (side) {
+        const merged = mergeScan(cards[otherSide], side);
+        const kind = cards[otherSide].kind;
+        onChange(prev => prev.map((c, j) => (j === otherSide ? { ...merged, kind: side.kind ?? kind } : c)));
+        const missing = missingFromScan(merged);
+        setOtherSide(null);
+        setScanNote({
+          text: missing.length
+            ? `Still missing: ${missing.join(', ')}. Type it in.`
+            : 'Both sides scanned. Check the details, choose Debit or Credit, and add the card PIN yourself.',
+        });
+      }
+    } catch (e) {
+      setScanNote({ text: e instanceof Error ? e.message : 'Could not scan the card.', bad: true });
+    } finally {
+      setScanning(false);
+    }
+  };
+
   return (
     <View style={{ gap: 10 }}>
       <Text style={s.label}>Cards on this account</Text>
@@ -440,11 +503,19 @@ function CardsEditor({ cards, onChange }: { cards: Card[]; onChange: React.Dispa
           onRemove={() => onChange(prev => prev.filter((_, j) => j !== i))}
         />
       ))}
+      {scanNote && <Text style={[s.hint, scanNote.bad && s.hintBad]}>{scanNote.text}</Text>}
+      {otherSide != null && cards[otherSide] && (
+        <Button title="Scan the other side" small onPress={scanOtherSide} loading={scanning} style={{ alignSelf: 'flex-start' }} />
+      )}
       <View style={s.chips}>
+        {canScanCards() && <Button title="Scan a card" small onPress={scan} loading={scanning} />}
         <Button title="+ Debit card" small variant="soft" onPress={() => add('debit')} />
         <Button title="+ Credit card" small variant="soft" onPress={() => add('credit')} />
       </View>
-      <Text style={s.hint}>The CVV is never stored. Keep it on the card itself.</Text>
+      <Text style={s.hint}>
+        The CVV is never stored. Keep it on the card itself.
+        {canScanCards() ? ' Scanning reads the card on this phone; no photo is kept.' : ''}
+      </Text>
     </View>
   );
 }

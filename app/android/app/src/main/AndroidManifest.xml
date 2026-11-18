@@ -5,6 +5,10 @@
       and the release manifest explicitly strips it in case a library merges it in.
     -->
 
+    <!-- Card scanning only. Asked for the first time Scan is tapped; Vault works without it. -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+
     <application
       android:name=".MainApplication"
       android:hasFragileUserData="true"
@@ -30,5 +34,10 @@
             <category android:name="android.intent.category.LAUNCHER" />
         </intent-filter>
       </activity>
+      <activity
+        android:name=".cardscan.CardScanActivity"
+        android:theme="@style/AppTheme"
+        android:screenOrientation="portrait"
+        android:exported="false" />
     </application>
 </manifest>
