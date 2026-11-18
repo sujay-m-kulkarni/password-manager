@@ -3,6 +3,13 @@ export type Release = { version: string; points: string[] };
 
 export const CHANGELOG: Release[] = [
   {
+    "version": "1.8.0",
+    "points": [
+      "Scan a card: on the Cards tab, tap Scan a card and Vault reads the card number, expiry and name with the camera. Cards that print details on the back work too: scan one side, then tap Scan the other side for whatever is missing.",
+      "Scanning happens on the phone: no photo is kept, nothing goes online, and the CVV is never read. Vault asks for the camera only the first time you scan."
+    ]
+  },
+  {
     "version": "1.7.0",
     "points": [
       "Custom fields: add your own fields to any entry (CIF, Branch, MMID, UID, CKYC no…), each Text, Number or Hidden. Hidden fields stay as dots until you tap Show.",

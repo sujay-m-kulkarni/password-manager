@@ -35,7 +35,7 @@ const mock = OpSqlite as unknown as { __reset: () => void; open: typeof OpSqlite
 beforeEach(() => (mock.__reset(), resetMetaConnection()));
 
 const VISA = '4111111111111111';
-const RUPAY = '6074 8200 0000 0005'; // RuPay-style prefix, valid Luhn
+const RUPAY = '6074 8200 0000 0009'; // RuPay-style prefix, valid Luhn
 
 const login = (over: Partial<EntryInput> = {}): EntryInput => ({
   type: 'banking',
@@ -133,7 +133,7 @@ describe('cards in a Banking entry', () => {
     const cards = listCards(db, id);
     expect(cards.map(c => [c.kind, c.number, c.expiry, c.pin])).toEqual([
       ['debit', VISA, '08/29', '4829'],
-      ['credit', '6074820000000005', '08/29', ''],
+      ['credit', '6074820000000009', '08/29', ''],
     ]);
     expect(listEntries(db, '', null)[0].cards).toBe(2);
 
