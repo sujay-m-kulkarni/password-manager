@@ -47,7 +47,7 @@ import { ENTRY_TYPES, typeInfo, type EntryType } from '../../entryTypes';
 import { useDb, useSession } from '../../store/session';
 import { colors, folderColor, fonts } from '../../theme';
 import { estimateStrength } from '../../utils/strength';
-import { OTHER_SIDE_PROMPT, canScanCards, mergeScan, missingFromScan, scanCard } from '../../cardScan';
+import { OTHER_SIDE_PROMPT, canScanCards, mergeScan, missingFromScan, scanCard, titleMatchesBank } from '../../cardScan';
 
 export type FormTab = 'login' | 'pins' | 'cards';
 
@@ -90,6 +90,14 @@ export function EntryForm({
     initialTab ?? (existing && !existing.password ? (existingPins.length ? 'pins' : existingCards.length ? 'cards' : 'login') : 'login'),
   );
   const [title, setTitle] = useState(existing?.title ?? '');
+  // A scanned card names its bank: an untitled entry takes it as its title; a different bank is pointed out.
+  const bankFromScan = (bank: string): string | null => {
+    if (!title.trim()) {
+      setTitle(bank);
+      return `Title set to ${bank}.`;
+    }
+    return titleMatchesBank(title, bank) ? null : `This card looks like ${bank}, not ${title.trim()}. Check it belongs in this entry.`;
+  };
   const [username, setUsername] = useState(existing?.username ?? '');
   const [password, setPassword] = useState(existing?.password ?? '');
   const [url, setUrl] = useState(existing?.url ?? '');
@@ -217,7 +225,7 @@ export function EntryForm({
 
           {currentTab === 'pins' && <PinsEditor pins={pins} onChange={setPins} />}
 
-          {currentTab === 'cards' && <CardsEditor cards={cards} onChange={setCards} />}
+          {currentTab === 'cards' && <CardsEditor cards={cards} onChange={setCards} onBank={bankFromScan} />}
 
           {!hasSecret && title.trim().length > 0 && (
             <Text style={s.hint}>Add a password, a PIN{showCards ? ' or a card' : ''} to save this entry.</Text>
@@ -425,7 +433,16 @@ function PinEditor({ pin, onChange, onRemove }: { pin: EntryPin; onChange: (p: P
   );
 }
 
-function CardsEditor({ cards, onChange }: { cards: Card[]; onChange: React.Dispatch<React.SetStateAction<Card[]>> }) {
+function CardsEditor({
+  cards,
+  onChange,
+  onBank,
+}: {
+  cards: Card[];
+  onChange: React.Dispatch<React.SetStateAction<Card[]>>;
+  /** Called with the bank printed on a scanned card; returns a note to show, if any. */
+  onBank?: (bank: string) => string | null;
+}) {
   // Functional updates: several quick changes in a row must not overwrite each other.
   const update = (i: number, patch: Partial<Card>) => onChange(prev => prev.map((c, j) => (j === i ? { ...c, ...patch } : c)));
   const add = (kind: CardKind) => onChange(prev => [...prev, emptyCard(kind)]);
@@ -435,11 +452,16 @@ function CardsEditor({ cards, onChange }: { cards: Card[]; onChange: React.Dispa
   // The card just scanned, while it still lacks something the other side may show.
   const [otherSide, setOtherSide] = useState<number | null>(null);
 
-  const noteFor = (missing: string[]) =>
+  const noteFor = (missing: string[], bankNote?: string | null) =>
     setScanNote({
-      text: missing.length
-        ? `Scanned. Still missing: ${missing.join(', ')}. It may be on the other side of the card.`
-        : 'Scanned. Check the details, choose Debit or Credit, and add the card PIN yourself.',
+      text: [
+        missing.length
+          ? `Scanned. Still missing: ${missing.join(', ')}. It may be on the other side of the card.`
+          : 'Scanned. Check the details, choose Debit or Credit, and add the card PIN yourself.',
+        bankNote,
+      ]
+        .filter(Boolean)
+        .join(' '),
     });
 
   // The camera opens as its own screen: pause auto-lock so Vault doesn't lock while it is open.
@@ -456,7 +478,7 @@ function CardsEditor({ cards, onChange }: { cards: Card[]; onChange: React.Dispa
         ]);
         const missing = missingFromScan(card);
         setOtherSide(missing.length ? index : null);
-        noteFor(missing);
+        noteFor(missing, card.bank ? onBank?.(card.bank) : null);
       }
     } catch (e) {
       setScanNote({ text: e instanceof Error ? e.message : 'Could not scan the card.', bad: true });
@@ -473,15 +495,21 @@ function CardsEditor({ cards, onChange }: { cards: Card[]; onChange: React.Dispa
     try {
       const side = await withAutoLockPaused(() => scanCard(OTHER_SIDE_PROMPT));
       if (side) {
+        const bankNote = side.bank ? onBank?.(side.bank) : null;
         const merged = mergeScan(cards[otherSide], side);
         const kind = cards[otherSide].kind;
         onChange(prev => prev.map((c, j) => (j === otherSide ? { ...merged, kind: side.kind ?? kind } : c)));
         const missing = missingFromScan(merged);
         setOtherSide(null);
         setScanNote({
-          text: missing.length
-            ? `Still missing: ${missing.join(', ')}. Type it in.`
-            : 'Both sides scanned. Check the details, choose Debit or Credit, and add the card PIN yourself.',
+          text: [
+            missing.length
+              ? `Still missing: ${missing.join(', ')}. Type it in.`
+              : 'Both sides scanned. Check the details, choose Debit or Credit, and add the card PIN yourself.',
+            bankNote,
+          ]
+            .filter(Boolean)
+            .join(' '),
         });
       }
     } catch (e) {
