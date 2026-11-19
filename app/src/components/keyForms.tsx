@@ -173,7 +173,7 @@ export function BiometricOffer({ dek, onDone }: { dek: Buffer; onDone: () => voi
   if (!support.fingerprint && !support.phoneLock) {
     return (
       <View style={{ gap: 16 }}>
-        <Banner tone="warn" text="This phone has no fingerprint or screen lock set up. Add one in the phone's settings to unlock Vault without typing." />
+        <Banner tone="warn" text="This phone has no fingerprint or screen lock set up. Add one in the phone's settings to unlock Anchor without typing." />
         <Button title="Continue" onPress={onDone} />
       </View>
     );

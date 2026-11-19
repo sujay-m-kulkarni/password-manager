@@ -18,7 +18,7 @@ export const HELP: Section[] = [
     title: 'Getting started',
     points: [
       'Choose a master password: at least 12 characters, or 4 or more words like “purple mango river forty”. It is never stored, so nobody can tell you what it was.',
-      'Vault then shows a 24-character recovery key, once. Write it on paper and keep it away from the phone. It is your way back if you forget the master password.',
+      'Anchor then shows a 24-character recovery key, once. Write it on paper and keep it away from the phone. It is your way back if you forget the master password.',
       'Turn on fingerprint unlock so you rarely need to type the password.',
       'New phone with a backup? Tap “New phone? Restore from a backup” on the first screen instead.',
     ],
@@ -26,25 +26,25 @@ export const HELP: Section[] = [
   {
     title: 'Unlocking',
     points: [
-      'With fingerprint on, Vault asks for it as soon as it opens. Tap the circle to try again.',
-      'Once a week Vault asks for the master password instead, so you don’t forget it.',
+      'With fingerprint on, Anchor asks for it as soon as it opens. Tap the circle to try again.',
+      'Once a week Anchor asks for the master password instead, so you don’t forget it.',
       'Three wrong passwords in a row make you wait 30 seconds, then longer each time.',
-      'Vault locks itself when you leave the app, turn off the screen, or after a minute without use (change it in Settings).',
+      'Anchor locks itself when you leave the app, turn off the screen, or after a minute without use (change it in Settings).',
     ],
   },
   {
     title: 'Saving passwords and PINs',
     points: [
-      'Tap + on the Vault tab. One entry can hold a login, PINs and (for Banking) cards: the tabs Login · PINs · Cards show one part at a time, with a tick or count for what is filled in.',
+      'Tap + on the Anchor tab. One entry can hold a login, PINs and (for Banking) cards: the tabs Login · PINs · Cards show one part at a time, with a tick or count for what is filled in.',
       'On the PINs tab add as many PINs as the account has (UPI PIN, ATM PIN, MPIN…). An entry with only a PIN, like a phone lock, needs no password.',
       'A PIN can be Numbers (4–12 digits, typed on the number pad) or Letters & numbers (4–16, for app passcodes). Letters keep their capitals.',
       'Give each entry a type: Banking, Investments, Social media, Email or Other. The chips above the list show one type at a time; star the entries you use most and they appear at the top.',
       'Each type starts with its own fields on the Login tab. Banking: Account number, IFSC, Customer ID, CIF, Branch, Branch code, MMID, UID (Aadhaar) and CKYC no. Investments: Client ID and Demat ID. Fill only what you need; empty fields are not saved.',
       'Need something else (a profile password, PAN, a registered mobile)? Tap “+ Add field” on the Login tab, give it a name and choose Text, Number or Hidden. Hidden fields show as dots until you tap Show, like passwords.',
-      'Change the fields a type starts with in Settings › Entry types: rename, add, remove, reorder, or reset to Vault’s list. Saved entries keep their values.',
+      'Change the fields a type starts with in Settings › Entry types: rename, add, remove, reorder, or reset to Anchor’s list. Saved entries keep their values.',
       'Banking entries also hold the account’s debit and credit cards (number, expiry, name on card and card PIN). The CVV is never stored.',
       'Scan a card instead of typing: on the Cards tab tap “Scan a card” and hold the side with the number in the frame and keep it still: the scanner reads the whole card and closes by itself when it’s done (Done stops it early). When something is still missing, tap “Scan the other side”. Check what was read, then add the card PIN yourself. The bank’s name is read too and goes in the card’s Bank / issuer field (an untitled entry also takes it as its title). Bank not read? Type it in, and tap “What the scanner read” to see the text the camera picked up.',
-      'Scanning reads the card on this phone: no photo is taken or kept, nothing goes online, and the CVV is never read into Vault. The camera permission is asked the first time only; Vault works without it.',
+      'Scanning reads the card on this phone: no photo is taken or kept, nothing goes online, and the CVV is never read into Anchor. The camera permission is asked the first time only; Anchor works without it.',
       'Opening an entry shows it read-only; card numbers and PINs stay hidden until you tap Show. Tap Edit to change it on the same screen, then Save or Cancel.',
       'The PINs chip lists entries that hold PINs; search finds entries by name, username, website or field values (never by hidden fields). Copy on the list copies the password, or the first PIN when there is no password.',
     ],
@@ -53,20 +53,20 @@ export const HELP: Section[] = [
     title: 'Copying a password',
     points: [
       'Tap Copy next to an entry, switch to the other app and paste.',
-      'The copied password is cleared after 30 seconds (or 15, in Settings), even though Vault locks when you switch apps.',
-      'Screenshots of Vault come out black on purpose.',
+      'The copied password is cleared after 30 seconds (or 15, in Settings), even though Anchor locks when you switch apps.',
+      'Screenshots of Anchor come out black on purpose.',
     ],
   },
   {
     title: 'Backups',
     points: [
-      'Vault never goes online, so your passwords exist only on this phone until there is a backup. That is why Vault asks you to set one up before you can use it.',
-      'Daily backup: Vault saves an encrypted backup every day at the time you choose (Settings › Backup), even while it is closed: one copy in a folder on this phone (the last 7 days are kept) and one on Google Drive, which is what saves you if the phone is lost or stolen.',
-      'Saving to Google Drive: in Android’s Save screen tap ☰ and choose Drive. If Drive doesn’t let Vault update the file by itself, Vault reminds you to save a fresh copy after a week of changes, and after a month opens only on the backup screen until you do.',
+      'Anchor never goes online, so your passwords exist only on this phone until there is a backup. That is why Anchor asks you to set one up before you can use it.',
+      'Daily backup: Anchor saves an encrypted backup every day at the time you choose (Settings › Backup), even while it is closed: one copy in a folder on this phone (the last 7 days are kept) and one on Google Drive, which is what saves you if the phone is lost or stolen.',
+      'Saving to Google Drive: in Android’s Save screen tap ☰ and choose Drive. If Drive doesn’t let Anchor update the file by itself, Anchor reminds you to save a fresh copy after a week of changes, and after a month opens only on the backup screen until you do.',
       'Settings › Back up now makes the daily copies straight away. Export encrypted backup saves an extra copy anywhere you like.',
-      'Uninstalling Vault deletes the vault unless you tick “Keep app data” in Android\'s uninstall dialog (uninstall from Settings › Apps to see it). Reinstalling Vault then opens the same vault; turn fingerprint unlock on again.',
+      'Uninstalling Anchor deletes the vault unless you tick “Keep app data” in Android\'s uninstall dialog (uninstall from Settings › Apps to see it). Reinstalling Anchor then opens the same vault; turn fingerprint unlock on again.',
       'A backup opens with the master password it was made with, or with your recovery key.',
-      'Phone lost or stolen? Your vault on it stays locked behind your master password. On the new phone: install Vault, tap “New phone? Restore from a backup”, pick the file from Google Drive and open it with your master password or recovery key. Keep the recovery key on paper too.',
+      'Phone lost or stolen? Your vault on it stays locked behind your master password. On the new phone: install Anchor, tap “New phone? Restore from a backup”, pick the file from Google Drive and open it with your master password or recovery key. Keep the recovery key on paper too.',
     ],
   },
   {
@@ -75,15 +75,15 @@ export const HELP: Section[] = [
       'Forgot the master password: on the unlock screen tap “Forgot password? Use recovery key”, then choose a new password.',
       'Lost both the master password and the recovery key: the vault cannot be opened by anyone, including you. Keep the recovery key safe.',
       'Fingerprint stopped working (for example after changing the phone’s screen lock): unlock with the master password and turn it on again in Settings.',
-      'Vault closed by itself: open it again and tap Share report on the screen that appears.',
+      'Anchor closed by itself: open it again and tap Share report on the screen that appears.',
     ],
   },
   {
     title: 'Keep it safe',
     points: [
-      'Uninstalling Vault deletes the vault. Export a backup first, and install updates over the existing app instead.',
-      'Never share your master password or recovery key. Vault will never ask for them anywhere except its own unlock screen.',
-      'Vault has no internet access at all: nothing you save leaves the phone unless you export a backup yourself.',
+      'Uninstalling Anchor deletes the vault. Export a backup first, and install updates over the existing app instead.',
+      'Never share your master password or recovery key. Anchor will never ask for them anywhere except its own unlock screen.',
+      'Anchor has no internet access at all: nothing you save leaves the phone unless you export a backup yourself.',
     ],
   },
 ];
@@ -94,7 +94,7 @@ export function HelpScreen({ navigation }: NativeStackScreenProps<RootStackParam
     <SafeAreaView style={s.root}>
       <ScrollView contentContainerStyle={s.content}>
         <Button title="‹ Back" variant="ghost" small onPress={() => navigation.goBack()} style={{ alignSelf: 'flex-start' }} />
-        <Text style={s.title}>How to use Vault</Text>
+        <Text style={s.title}>How to use Anchor</Text>
         <Text style={s.lead}>A password manager that keeps everything encrypted on this phone and never connects to the internet.</Text>
         {HELP.map((sec, i) => {
           const expanded = open === i;

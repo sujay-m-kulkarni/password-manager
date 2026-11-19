@@ -19,6 +19,7 @@ import { useDb, useSession } from '../../store/session';
 import { colors, fonts } from '../../theme';
 import { useAppVersion } from '../../utils/appVersion';
 import { useExportBackup } from './useExportBackup';
+import { APP_NAME } from '../../brand';
 import {
   TIMES,
   backUpNow as runDailyBackupNow,
@@ -200,13 +201,19 @@ export function SettingsScreen() {
         <Text style={s.title}>Settings</Text>
 
         {daily ? (
-          <DriveCard
+          <DailyCard
+            folder={auto}
             off={off}
-            at={offAt}
-            time={timeLabel(time)}
+            offAt={offAt}
             stale={offStale}
-            busy={offBusy}
-            onSave={saveOffPhone}
+            status={status}
+            time={time}
+            onTime={pickTime}
+            busy={autoBusy}
+            offBusy={offBusy}
+            onBackUp={backUpNow}
+            onFolder={chooseFolder}
+            onSaveOff={saveOffPhone}
           />
         ) : (
           <View style={[s.backupCard, due || last == null ? s.backupDue : s.backupOk]}>
@@ -225,7 +232,7 @@ export function SettingsScreen() {
         <SectionLabel>Unlock</SectionLabel>
         <View style={s.card}>
           {!support ? null : !bioAvailable ? (
-            <Text style={s.hint}>This phone has no fingerprint or screen lock set up. Add one in the phone's settings to unlock Vault without typing.</Text>
+            <Text style={s.hint}>This phone has no fingerprint or screen lock set up. Add one in the phone's settings to unlock Anchor without typing.</Text>
           ) : (
             <>
               <ToggleRow
@@ -288,31 +295,7 @@ export function SettingsScreen() {
         {!recovery && <Banner tone="warn" text="No recovery key yet. Without one, a forgotten master password can't be undone." />}
 
         <SectionLabel>Backup</SectionLabel>
-        {daily ? (
-          <View style={s.card}>
-            <Text style={s.rowLabel}>Daily backup</Text>
-            <Segmented
-              options={TIMES.map((t, i) => ({ sec: i, label: t.label }))}
-              value={Math.max(0, TIMES.findIndex(t => t.value === time))}
-              onChange={i => pickTime(TIMES[i].value)}
-            />
-            <Text style={s.hint}>
-              Every day at {timeLabel(time)}, even while Vault is closed (Android may run it a few minutes late).
-              {'\n'}On this phone: {auto ? `“${auto.folder}”, last 7 days kept.` : 'no folder chosen.'}
-              {'\n'}Off the phone: {off ? `“${off.name}” on ${off.place}${off.persisted ? ', updated daily.' : ', saved by you (Vault reminds you).'}` : 'not saved yet.'}
-              {'\n'}
-              {status?.lastRunAt ? `Last daily backup: ${ago(status.lastRunAt)} at ${new Date(status.lastRunAt).toLocaleTimeString()}.` : 'No daily backup yet.'}
-              {status?.nextAt ? ` Next: ${new Date(status.nextAt).toLocaleString()}.` : ''}
-            </Text>
-            {status?.error && <Banner text={status.error} />}
-            {auto?.error && <Banner text={auto.error} />}
-            <View style={s.autoActions}>
-              <Button title="Back up now" small onPress={backUpNow} loading={autoBusy} />
-              <Button title="Change folder" small variant="soft" onPress={chooseFolder} disabled={autoBusy} />
-              <Button title="Save to Drive again" small variant="soft" onPress={saveOffPhone} disabled={offBusy} />
-            </View>
-          </View>
-        ) : (
+        {daily ? null : (
           <View style={s.card}>
             <Text style={s.rowLabel}>Automatic backup</Text>
             {auto ? (
@@ -332,8 +315,8 @@ export function SettingsScreen() {
             ) : (
               <>
                 <Text style={s.hint}>
-                  Choose a folder once (for example Downloads, an SD card, or a Google Drive folder). Vault then saves an
-                  encrypted backup there by itself whenever your entries change. Those files stay even if Vault is
+                  Choose a folder once (for example Downloads, an SD card, or a Google Drive folder). Anchor then saves an
+                  encrypted backup there by itself whenever your entries change. Those files stay even if Anchor is
                   uninstalled.
                 </Text>
                 <Button title="Choose backup folder" small onPress={chooseFolder} loading={autoBusy} style={{ alignSelf: 'flex-start' }} />
@@ -348,54 +331,119 @@ export function SettingsScreen() {
 
         <SectionLabel>Help</SectionLabel>
         <View style={s.list}>
-          <NavRow label="How to use Vault" onPress={() => navigation.navigate('Help')} />
+          <NavRow label="How to use Anchor" onPress={() => navigation.navigate('Help')} />
           <NavRow label="About & what's new" value={version?.name} onPress={() => navigation.navigate('About')} />
         </View>
 
         <Button title="Lock now" variant="dark" onPress={() => lock()} />
         <Text style={s.footer}>
-          Vault {version?.name ?? ''} · Offline build · no internet permission
+          Anchor {version?.name ?? ''} · Offline build · no internet permission
         </Text>
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-function DriveCard({
+function DailyCard({
+  folder,
   off,
-  at,
-  time,
+  offAt,
   stale,
+  status,
+  time,
+  onTime,
   busy,
-  onSave,
+  offBusy,
+  onBackUp,
+  onFolder,
+  onSaveOff,
 }: {
+  folder: ReturnType<typeof autoBackupState>;
   off: ReturnType<typeof offPhoneState>;
-  at: number | null;
-  time: string;
+  offAt: number | null;
   stale: boolean;
+  status: DailyStatus | null;
+  time: string;
+  onTime: (t: string) => void;
   busy: boolean;
-  onSave: () => void;
+  offBusy: boolean;
+  onBackUp: () => void;
+  onFolder: () => void;
+  onSaveOff: () => void;
 }) {
-  const ok = off != null && !stale;
+  const folderAt = status?.folderOkAt || folder?.lastAt || 0;
+  const offOk = off != null && !stale;
+  const allGood = !!folder && offOk && !status?.error;
   return (
-    <View style={[s.backupCard, ok ? s.backupOk : s.backupDue]}>
-      <Text style={s.backupTitle}>
-        {off == null ? 'No copy off this phone' : `Copy on ${off.place}: ${at ? ago(at) : 'not saved yet'}`}
+    <View style={s.card}>
+      <View style={s.toggleRow}>
+        <Text style={[s.backupTitle, { flex: 1 }]}>Daily backup</Text>
+        <View style={[s.statusPill, { backgroundColor: allGood ? colors.successSoft : colors.warnSoft }]}>
+          <Text style={[s.statusPillText, { color: allGood ? colors.success : colors.warnInk }]}>{allGood ? 'All good' : 'Needs attention'}</Text>
+        </View>
+      </View>
+      <Place
+        ok={!!folder && folderAt > 0}
+        title={folder ? `This phone · “${folder.folder}”` : 'This phone · no folder chosen'}
+        sub={folderAt ? `${when(folderAt)} · last 7 days kept` : 'Not saved yet'}
+        action="Change folder"
+        onAction={onFolder}
+      />
+      <Place
+        ok={offOk}
+        title={off ? `${off.place} · ${off.name}` : 'Google Drive · not saved yet'}
+        sub={
+          off
+            ? `${offAt ? when(offAt) : 'not saved yet'} · ${off.persisted ? 'updated daily' : stale ? 'save a fresh copy' : 'saved by you'}`
+            : 'The copy that survives a lost or stolen phone'
+        }
+        action={off?.persisted ? 'Save again' : 'Save to Drive'}
+        onAction={onSaveOff}
+        busy={offBusy}
+      />
+      {status?.error && <Banner text={status.error} />}
+      <Segmented
+        options={TIMES.map((t, i) => ({ sec: i, label: t.label }))}
+        value={Math.max(0, TIMES.findIndex(t => t.value === time))}
+        onChange={i => onTime(TIMES[i].value)}
+      />
+      <Text style={s.hint}>
+        Every day at {timeLabel(time)}, even while {APP_NAME} is closed.
+        {status?.nextAt ? ` Next: ${new Date(status.nextAt).toLocaleString(undefined, { weekday: 'short', hour: 'numeric', minute: '2-digit' })}.` : ''}
       </Text>
-      <Text style={s.backupBody}>
-        {off == null
-          ? 'Save an encrypted copy to Google Drive. It is what gets your vault back if this phone is lost or stolen.'
-          : off.persisted
-            ? `Vault updates it every day at ${time}.${stale ? ' Your latest changes go in at the next one.' : ''}`
-            : stale
-              ? 'You have changes since then. Save a fresh copy.'
-              : 'Up to date. Save a fresh copy after you change entries.'}
-      </Text>
-      {(off == null || !off.persisted) && (
-        <Button title="Save to Google Drive" variant="dark" small onPress={onSave} loading={busy} style={{ alignSelf: 'flex-start' }} />
-      )}
+      <Button title="Back up now" small variant="soft" onPress={onBackUp} loading={busy} />
     </View>
   );
+}
+
+function Place({ ok, title, sub, action, onAction, busy }: { ok: boolean; title: string; sub: string; action: string; onAction: () => void; busy?: boolean }) {
+  return (
+    <View style={s.place}>
+      <View style={[s.placeIcon, { backgroundColor: ok ? colors.successSoft : colors.warnSoft }]}>
+        <Icon name={ok ? 'check' : 'minus'} size={18} color={ok ? colors.success : colors.warnInk} strokeWidth={2.4} />
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={s.placeTitle} numberOfLines={1}>
+          {title}
+        </Text>
+        <Text style={s.hint} numberOfLines={2}>
+          {sub}
+        </Text>
+      </View>
+      <Pressable accessibilityRole="button" onPress={onAction} disabled={busy} style={s.placeAction}>
+        <Text style={s.placeActionText}>{busy ? '…' : action}</Text>
+      </Pressable>
+    </View>
+  );
+}
+
+/** "today 9:00 pm", "yesterday 9:00 pm", or "3 Nov". */
+function when(ms: number): string {
+  const d = new Date(ms);
+  const day = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+  const diff = Math.round((day(new Date()) - day(d)) / 86_400_000);
+  const t = d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  return diff <= 0 ? `Today ${t}` : diff === 1 ? `Yesterday ${t}` : d.toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
 }
 
 function ago(ms: number): string {
@@ -504,6 +552,13 @@ const s = StyleSheet.create({
   },
   navValue: { fontFamily: fonts.bold, fontSize: 14 },
   autoActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  statusPill: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10 },
+  statusPillText: { fontFamily: fonts.extrabold, fontSize: 12 },
+  place: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  placeIcon: { width: 36, height: 36, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  placeTitle: { fontFamily: fonts.bold, fontSize: 14, color: colors.ink },
+  placeAction: { minHeight: 44, paddingHorizontal: 8, justifyContent: 'center' },
+  placeActionText: { fontFamily: fonts.extrabold, fontSize: 13, color: colors.primary },
   segment: { flexDirection: 'row', backgroundColor: colors.bg, borderRadius: 14, padding: 4, gap: 4 },
   segBtn: { flex: 1, height: 44, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
   segBtnOn: { backgroundColor: colors.primary },

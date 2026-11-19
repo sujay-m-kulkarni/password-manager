@@ -36,6 +36,18 @@ const seen = async (r: ReactTestRenderer.ReactTestRenderer, text: string) => {
   expect(textOf(r)).toContain(text);
 };
 
+/** On the home list: its Add button is there (the title is the app's name, shared with other screens). */
+const atHome = (r: ReactTestRenderer.ReactTestRenderer) =>
+  r.root.findAll(n => n.props.accessibilityLabel === 'Add entry' && typeof n.props.onPress === 'function').length > 0;
+const home = async (r: ReactTestRenderer.ReactTestRenderer) => {
+  for (let i = 0; i < 150 && !atHome(r); i++) {
+    await act(async () => {
+      await wait(100);
+    });
+  }
+  expect(atHome(r)).toBe(true);
+};
+
 const pressTab = async (r: ReactTestRenderer.ReactTestRenderer, label: string) => {
   const tab = r.root.findAll(
     n => n.props.accessibilityRole === 'tab' && typeof n.props.onPress === 'function' && n.findAll(t => String(t.props.children).startsWith(label)).length > 0,
@@ -52,7 +64,10 @@ const pressButton = async (r: ReactTestRenderer.ReactTestRenderer, label: string
       n.props.accessibilityRole === 'button' &&
       typeof n.props.onPress === 'function' &&
       n.findAll(t => t.props.children === label).length > 0,
-  )[0];
+  ).at(-1); // the top screen renders last (screens behind it stay mounted)
+  if (!button) {
+    throw new Error(`No button "${label}" on: ${textOf(r).slice(0, 400)}`);
+  }
   await act(async () => {
     button.props.onPress();
     await wait(300);
@@ -96,9 +111,9 @@ test('setup creates the vault and opens the Vault screen', async () => {
   await seen(r, 'Unlock with your fingerprint');
   await pressButton(r, 'Continue');
 
-  await seen(r, 'My Vault');
+  await home(r);
   const after = textOf(r);
-  expect(after).toContain('My Vault');
+  expect(atHome(r)).toBe(true);
   expect(after).toContain('Banking');
 
   // Forgot password: lock, unlock with the recovery key, choose a new master password.
@@ -120,8 +135,8 @@ test('setup creates the vault and opens the Vault screen', async () => {
     pwInputs[0].props.onChangeText('seven quiet blue lanterns');
     pwInputs[1].props.onChangeText('seven quiet blue lanterns');
   });
-  await pressButton(r, 'Save and open Vault');
-  await seen(r, 'My Vault');
+  await pressButton(r, 'Save and open Anchor');
+  await home(r);
 
   // The new password now opens the vault.
   await act(async () => {
@@ -132,7 +147,7 @@ test('setup creates the vault and opens the Vault screen', async () => {
     r.root.findAllByType(TextInput)[0].props.onChangeText('seven quiet blue lanterns');
   });
   await pressButton(r, 'Unlock');
-  await seen(r, 'My Vault');
+  await home(r);
   await act(async () => {
     r.unmount();
     await wait(50);
@@ -156,13 +171,13 @@ test('shows the crash report before anything else, until closed', async () => {
     r = ReactTestRenderer.create(<App />);
     await wait(50);
   });
-  await seen(r, 'Vault closed unexpectedly last time');
-  await seen(r, 'Vault 1.0.1 — report');
+  await seen(r, 'Anchor closed unexpectedly last time');
+  await seen(r, 'Anchor 1.0.1 — report');
   // Safe start: nothing of the vault runs while the report is shown.
   expect(textOf(r)).not.toContain('Welcome back');
   await pressButton(r, 'Close');
   expect(dismissCrash).toHaveBeenCalled();
-  expect(textOf(r)).not.toContain('Vault closed unexpectedly last time');
+  expect(textOf(r)).not.toContain('Anchor closed unexpectedly last time');
   await seen(r, 'Welcome back');
   await act(async () => {
     r.unmount();
@@ -177,11 +192,11 @@ test('the guide opens from the unlock screen, without unlocking', async () => {
     await wait(50);
   });
   await seen(r, 'Welcome back');
-  await pressButton(r, 'How to use Vault');
+  await pressButton(r, 'How to use Anchor');
   await seen(r, 'Getting started');
   await seen(r, 'Write it on paper');
   await pressButton(r, 'Backups');
-  await seen(r, 'Daily backup: Vault saves an encrypted backup every day');
+  await seen(r, 'Daily backup: Anchor saves an encrypted backup every day');
   await pressButton(r, '‹ Back');
   await seen(r, 'Welcome back');
   await act(async () => {
@@ -201,9 +216,9 @@ test('a new entry returns to the list; an edited one stays on its page, read-onl
     r.root.findAllByType(TextInput)[0].props.onChangeText('seven quiet blue lanterns');
   });
   await pressButton(r, 'Unlock');
-  await seen(r, 'My Vault');
+  await home(r);
 
-  const fab = () => r.root.findAll(n => n.props.accessibilityLabel === 'Add password' && typeof n.props.onPress === 'function')[0];
+  const fab = () => r.root.findAll(n => n.props.accessibilityLabel === 'Add entry' && typeof n.props.onPress === 'function')[0];
   const fill = async (title: string, secret: string) => {
     const inputs = r.root.findAllByType(TextInput);
     const byLabel = (l: string) => inputs.find(i => i.props.accessibilityLabel === l)!;
@@ -221,7 +236,7 @@ test('a new entry returns to the list; an edited one stays on its page, read-onl
   await fill('Netflix', 'Xq7#tLm9vRw!pZ24');
   await pressButton(r, 'Save');
   let t = textOf(r);
-  expect(t).toContain('My Vault');
+  expect(atHome(r)).toBe(true);
   expect(t).toContain('Netflix');
   expect(t).not.toContain('Delete entry'); // not the entry's own page
 
@@ -243,7 +258,7 @@ test('a new entry returns to the list; an edited one stays on its page, read-onl
   await seen(r, 'PINs · 1');
   await pressButton(r, 'Save');
   t = textOf(r);
-  expect(t).toContain('My Vault');
+  expect(atHome(r)).toBe(true);
   expect(t).toContain('Phone lock');
 
   // Edit from the entry's page → back on the list, not the entry page.
@@ -289,7 +304,7 @@ test('one Banking entry with a login, a UPI PIN and a debit card: read-only firs
   const input = (label: string) =>
     r.root.findAllByType(TextInput).find(i => String(i.props.accessibilityLabel ?? '').startsWith(label))!;
   await act(async () => {
-    r.root.findAll(n => n.props.accessibilityLabel === 'Add password' && typeof n.props.onPress === 'function')[0].props.onPress();
+    r.root.findAll(n => n.props.accessibilityLabel === 'Add entry' && typeof n.props.onPress === 'function')[0].props.onPress();
     await wait(50);
   });
   // Choose the Banking type: account fields and cards appear.
@@ -360,7 +375,7 @@ test('custom fields: fill a starting field, add a hidden one, find the entry by 
   const input = (label: string) => r.root.findAllByType(TextInput).find(i => i.props.accessibilityLabel === label)!;
 
   await act(async () => {
-    r.root.findAll(n => n.props.accessibilityLabel === 'Add password' && typeof n.props.onPress === 'function')[0].props.onPress();
+    r.root.findAll(n => n.props.accessibilityLabel === 'Add entry' && typeof n.props.onPress === 'function')[0].props.onPress();
     await wait(50);
   });
   await act(async () => {
@@ -449,7 +464,7 @@ test('Settings: change a type\'s starting fields; About shows the version histor
   await pressButton(r, '‹ Back');
   await pressButton(r, "About & what's new");
   const t = textOf(r);
-  expect(t).toContain('Vault 1.7.0');
+  expect(t).toContain('Anchor 1.7.0');
   expect(t).toContain('Installed');
   expect(t).toContain('Custom fields: add your own fields');
 
@@ -514,10 +529,10 @@ test('1.9.0: after unlocking, Vault opens only once a daily backup is set up', a
 
     // The backup screen, with the reason, instead of the vault.
     await seen(r, 'Set up your backup');
-    await seen(r, 'Why Vault insists on this');
-    expect(textOf(r)).not.toContain('My Vault');
+    await seen(r, 'Why Anchor insists on this');
+    expect(atHome(r)).toBe(false);
     const done = () =>
-      r.root.findAll(n => n.props.accessibilityRole === 'button' && n.findAll(t => t.props.children === 'Done: open Vault').length > 0)[0];
+      r.root.findAll(n => n.props.accessibilityRole === 'button' && n.findAll(t => t.props.children === 'Done: open Anchor').length > 0)[0];
     expect(done().props.accessibilityState.disabled).toBe(true);
 
     await pressButton(r, 'Choose folder');
@@ -530,11 +545,11 @@ test('1.9.0: after unlocking, Vault opens only once a daily backup is set up', a
 
     authority = 'com.google.android.apps.docs.storage';
     await pressButton(r, 'Save to Google Drive');
-    await seen(r, 'on Google Drive. Vault updates this file every day.');
+    await seen(r, 'on Google Drive. Anchor updates this file every day.');
     expect(done().props.accessibilityState.disabled).toBe(false);
 
-    await pressButton(r, 'Done: open Vault');
-    await seen(r, 'My Vault');
+    await pressButton(r, 'Done: open Anchor');
+    await home(r);
     await act(async () => {
       r.unmount();
     });

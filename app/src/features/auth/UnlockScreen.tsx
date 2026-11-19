@@ -20,6 +20,9 @@ import type { RootStackParamList } from '../../navigation/types';
 import { useSession } from '../../store/session';
 import { colors, fonts } from '../../theme';
 import { Icon } from '../../components/Icon';
+import { AppMark } from '../../components/AppMark';
+import { APP_NAME } from '../../brand';
+import { dailyStatus } from '../../security/dailyBackup';
 import { step } from '../../utils/steps';
 
 type Mode = 'password' | 'recovery' | { newPassword: { db: DB; dek: Buffer } };
@@ -37,6 +40,11 @@ export function UnlockScreen() {
     due: Biometric.passwordDue(),
   }));
   const autoPrompted = useRef(false);
+  // The daily backup's record lives outside the vault, so it can be shown while locked.
+  const [backedUpAt, setBackedUpAt] = useState(0);
+  useEffect(() => {
+    dailyStatus().then(st => st && setBackedUpAt(Math.max(st.folderOkAt, st.driveOkAt)));
+  }, []);
 
   const refreshWait = useCallback(async () => {
     const w = await remainingWaitMs();
@@ -125,9 +133,9 @@ export function UnlockScreen() {
     return (
       <Screen
         title="Set a new master password"
-        body="You opened Vault with your recovery key. Choose a new master password; your recovery key keeps working. Old backups still open with the old password or the recovery key.">
+        body="You opened Anchor with your recovery key. Choose a new master password; your recovery key keeps working. Old backups still open with the old password or the recovery key.">
         <NewPasswordForm
-          submitTitle="Save and open Vault"
+          submitTitle="Save and open Anchor"
           busyTitle="Saving…"
           onSubmit={async pw => {
             await changePassword(dek, pw);
@@ -148,18 +156,20 @@ export function UnlockScreen() {
       <KeyboardAvoidingView style={{ flex: 1 }} behavior="height">
         <ScrollView contentContainerStyle={{ flexGrow: 1 }} keyboardShouldPersistTaps="handled">
           <View style={s.hero}>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={showBio ? 'Unlock with fingerprint' : 'Vault is locked'}
-              disabled={!showBio || waiting}
-              onPress={tryBiometric}
-              style={s.lockCircle}>
-              <Icon name={showBio ? 'fingerprint' : 'lock'} size={44} color={colors.primary} />
-            </Pressable>
+            <AppMark size={84} />
             <Text style={s.heroTitle}>Welcome back</Text>
-            <Text style={s.heroSub}>
-              {recovery ? 'Unlock with your recovery key' : showBio ? 'Touch the circle to use your fingerprint' : 'Your vault is locked'}
-            </Text>
+            <Text style={s.heroSub}>{recovery ? 'Unlock with your recovery key' : `${APP_NAME} is locked`}</Text>
+            {showBio && (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Unlock with fingerprint"
+                disabled={waiting}
+                onPress={tryBiometric}
+                style={s.bioCircle}>
+                <Icon name="fingerprint" size={46} color={colors.primary} strokeWidth={1.8} />
+                <Text style={s.bioText}>Touch to unlock</Text>
+              </Pressable>
+            )}
           </View>
           <View style={s.form}>
             {bio.enabled && bio.due && !recovery && (
@@ -179,7 +189,6 @@ export function UnlockScreen() {
             />
             <Button title="Unlock" variant="dark" onPress={submit} disabled={!secret || waiting} loading={busy} />
             {waitText ? <Banner text={waitText} /> : message ? <Banner text={message} /> : null}
-            {showBio && <Button title="Use fingerprint" variant="soft" onPress={tryBiometric} disabled={waiting} />}
             {hasRecoveryKey() && (
               <Pressable
                 accessibilityRole="button"
@@ -193,15 +202,31 @@ export function UnlockScreen() {
               </Pressable>
             )}
             <Pressable accessibilityRole="button" onPress={() => navigation.navigate('Help')} style={s.link}>
-              <Text style={s.linkText}>How to use Vault</Text>
+              <Text style={s.linkText}>How to use Anchor</Text>
             </Pressable>
             <View style={{ flex: 1 }} />
-            <Text style={s.footer}>Offline · Encrypted on this phone</Text>
+            {backedUpAt > 0 ? (
+              <View style={s.backedUp}>
+                <Icon name="check" size={16} color={colors.success} strokeWidth={2.4} />
+                <Text style={s.backedUpText}>Backed up {when(backedUpAt)}</Text>
+              </View>
+            ) : (
+              <Text style={s.footer}>Offline · Encrypted on this phone</Text>
+            )}
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
+}
+
+/** "today at 9:00 pm", "yesterday at 9:00 pm", or "on 3 Nov". */
+function when(ms: number): string {
+  const d = new Date(ms);
+  const day = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+  const diff = Math.round((day(new Date()) - day(d)) / 86_400_000);
+  const time = d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  return diff <= 0 ? `today at ${time}` : diff === 1 ? `yesterday at ${time}` : `on ${d.toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}`;
 }
 
 function formatWait(ms: number) {
@@ -211,27 +236,32 @@ function formatWait(ms: number) {
 
 const s = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
-  hero: {
-    height: 320,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
-    overflow: 'hidden',
-  },
-  lockCircle: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
+  hero: { alignItems: 'center', justifyContent: 'center', gap: 8, paddingTop: 64, paddingBottom: 8 },
+  bioCircle: {
+    width: 132,
+    height: 132,
+    borderRadius: 66,
+    borderWidth: 2,
+    borderColor: colors.primary,
     backgroundColor: colors.surface,
-    shadowColor: colors.primary,
-    shadowOpacity: 0.25,
-    shadowRadius: 24,
-    elevation: 6,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 8,
+    gap: 6,
+    marginTop: 24,
   },
-  heroTitle: { fontFamily: fonts.extrabold, fontSize: 26, color: colors.ink },
+  bioText: { fontFamily: fonts.bold, fontSize: 13, color: colors.primary },
+  backedUp: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'center',
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 20,
+    backgroundColor: colors.successSoft,
+  },
+  backedUpText: { fontFamily: fonts.semibold, fontSize: 13, color: colors.successInk },
+  heroTitle: { fontFamily: fonts.extrabold, fontSize: 28, color: colors.ink, marginTop: 10 },
   heroSub: { fontFamily: fonts.regular, fontSize: 15, color: colors.muted, textAlign: 'center', paddingHorizontal: 24 },
   form: { flex: 1, padding: 24, gap: 12 },
   link: { minHeight: 44, justifyContent: 'center', alignItems: 'center' },

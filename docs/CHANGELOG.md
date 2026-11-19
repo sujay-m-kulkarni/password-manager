@@ -4,6 +4,15 @@ What's new in each release, newest first. The GitHub release notes are made from
 merged pull request (`app/scripts/release-notes.mjs`); this file keeps the whole history in one place and is updated
 in every PR.
 
+## 1.10.0
+
+- Vault is now **Anchor**, with a new brass-anchor icon: "what keeps a family steady". Same app and same vault; it installs over the old one as usual.
+- A refreshed look on a deeper dark background with a brass accent.
+- Home: your totals (entries, PINs, cards), a backup status line ("Backed up today 9:00 pm · phone + Google Drive"), type filters with icons, Favourites and a new Recently used row, and entries grouped by type with a one-tap copy button.
+- Entry page: fields grouped under Login, PINs and Cards, with show and copy buttons; each card is drawn like the real card, with the bank, last 4 digits, expiry and network.
+- Unlock: the Anchor mark, a large Touch to unlock button and when your last backup ran.
+- Settings: one Daily backup card with both places (this phone and Google Drive), their status, the daily time and Back up now.
+
 ## 1.9.0
 
 - Backup is now required: after unlocking, Vault asks you to set up a daily backup before you can use it, and explains why. Vault is offline, so without a copy off the phone a lost, stolen or broken phone means everything is gone.

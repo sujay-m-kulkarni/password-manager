@@ -4,7 +4,7 @@
  */
 export type EntryType = 'banking' | 'investments' | 'social' | 'email' | 'other';
 
-export type TypeInfo = { key: EntryType; label: string; color: string; cards: boolean };
+export type TypeInfo = { key: EntryType; label: string; color: string; cards: boolean; icon: 'bank' | 'chart' | 'people' | 'mail' | 'grid' };
 
 export const ENTRY_TYPES: TypeInfo[] = [
   {
@@ -12,16 +12,18 @@ export const ENTRY_TYPES: TypeInfo[] = [
     label: 'Banking',
     color: 'blue',
     cards: true,
+    icon: 'bank',
   },
   {
     key: 'investments',
     label: 'Investments',
     color: 'green',
     cards: false,
+    icon: 'chart',
   },
-  { key: 'social', label: 'Social media', color: 'pink', cards: false },
-  { key: 'email', label: 'Email', color: 'orange', cards: false },
-  { key: 'other', label: 'Other', color: 'violet', cards: false },
+  { key: 'social', label: 'Social media', color: 'pink', cards: false, icon: 'people' },
+  { key: 'email', label: 'Email', color: 'orange', cards: false, icon: 'mail' },
+  { key: 'other', label: 'Other', color: 'violet', cards: false, icon: 'grid' },
 ];
 
 export const typeInfo = (t: string | null | undefined): TypeInfo =>

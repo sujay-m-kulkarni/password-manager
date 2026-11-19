@@ -88,7 +88,7 @@ test('keeps only the newest copies', async () => {
 test('a lost folder permission is shown, and cleared by the next good backup', async () => {
   const { db, dek } = await createVault(PW);
   await chooseAutoBackupFolder(db, dek);
-  failWith = new Error('Vault can no longer write to the backup folder. Choose it again in Settings.');
+  failWith = new Error('Anchor can no longer write to the backup folder. Choose it again in Settings.');
   expect(await runAutoBackup(db, dek)).toBe(false);
   expect(autoBackupState(db)?.error).toMatch(/no longer write/);
   failWith = null;

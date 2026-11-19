@@ -132,6 +132,9 @@ const MIGRATIONS: string[][] = [
   [`ALTER TABLE entries ADD COLUMN field_text TEXT`, `UPDATE entries SET field_text = fields`],
   // v5 (1.8.3): each card names its bank or issuer (read by a scan, or typed).
   [`ALTER TABLE cards ADD COLUMN bank TEXT`],
+  // v6 (1.10.0): when an entry was last opened or copied, for "Recently used". Not an edit, so it
+  // never changes updated_at (which decides whether a backup is out of date).
+  [`ALTER TABLE entries ADD COLUMN used_at INTEGER`],
 ];
 
 function migrate(db: DB) {
@@ -469,6 +472,33 @@ function writeEntry(
     [...common, now, now],
   );
   return Number(res.insertId);
+}
+
+/** Notes that an entry was opened or copied from, for "Recently used". Not an edit. */
+export function markUsed(db: DB, id: number, now = Date.now()) {
+  db.executeSync('UPDATE entries SET used_at = ? WHERE id = ?', [now, id]);
+}
+
+/** The entries used most recently, newest first. */
+export function listRecent(db: DB, limit = 3): EntryListItem[] {
+  return rows<EntryListItem>(
+    db,
+    `SELECT e.id, e.type, e.title, e.username, e.favorite, e.folder_id, NULL AS folder_color,
+      (SELECT count(*) FROM cards c WHERE c.entry_id = e.id) AS cards,
+      (SELECT count(*) FROM pins p WHERE p.entry_id = e.id) AS pins,
+      (e.password <> '') AS has_password
+    FROM entries e WHERE e.used_at IS NOT NULL ORDER BY e.used_at DESC LIMIT ?`,
+    [limit],
+  );
+}
+
+/** Totals for the list's header: entries, PINs and cards. */
+export function vaultTotals(db: DB): { entries: number; pins: number; cards: number } {
+  const r = rows<{ e: number; p: number; c: number }>(
+    db,
+    'SELECT (SELECT count(*) FROM entries) AS e, (SELECT count(*) FROM pins) AS p, (SELECT count(*) FROM cards) AS c',
+  )[0];
+  return { entries: Number(r?.e ?? 0), pins: Number(r?.p ?? 0), cards: Number(r?.c ?? 0) };
 }
 
 export function setFavorite(db: DB, id: number, favorite: boolean) {

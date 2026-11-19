@@ -77,7 +77,7 @@ export async function getDek(): Promise<BiometricUnlock> {
     const cred = await Keychain.getGenericPassword({
       service: SERVICE,
       accessControl: accessControl(allowsPhoneLock()),
-      authenticationPrompt: { title: 'Unlock Vault', cancel: 'Use master password' },
+      authenticationPrompt: { title: 'Unlock Anchor', cancel: 'Use master password' },
     });
     if (!cred) {
       await disable();

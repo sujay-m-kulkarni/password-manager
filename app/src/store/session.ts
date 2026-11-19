@@ -107,7 +107,7 @@ export function useDb(): DB {
     last.current = db;
   }
   if (!last.current) {
-    throw new Error('Vault is locked');
+    throw new Error('Anchor is locked');
   }
   return last.current;
 }

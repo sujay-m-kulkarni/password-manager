@@ -75,7 +75,7 @@ export function ChangePasswordScreen({ navigation }: NativeStackScreenProps<Root
           note="Write the new password down somewhere safe off your phone."
           onSubmit={async pw => {
             if (!dek) {
-              throw new Error('Vault is locked.');
+              throw new Error('Anchor is locked.');
             }
             await changePassword(dek, pw);
             setStep('done');

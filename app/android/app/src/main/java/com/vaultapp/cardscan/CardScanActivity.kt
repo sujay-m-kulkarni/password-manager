@@ -251,7 +251,7 @@ class CardScanActivity : ComponentActivity() {
   private class CardFrame(context: Context) : View(context) {
     private val dim = Paint().apply { color = Color.argb(150, 0, 0, 0) }
     private val border = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-      color = Color.parseColor("#A99CF0")
+      color = Color.parseColor("#E2B866")
       style = Paint.Style.STROKE
       strokeWidth = 6f
     }

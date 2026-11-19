@@ -60,7 +60,7 @@ class CardScanModule(private val reactContext: ReactApplicationContext) :
     }
     when (data?.getStringExtra(CardScanActivity.EXTRA_ERROR)) {
       CardScanActivity.ERROR_PERMISSION ->
-        promise.reject("E_PERMISSION", "Vault needs the camera to scan a card. Allow it in Android settings, or type the details.")
+        promise.reject("E_PERMISSION", "Anchor needs the camera to scan a card. Allow it in Android settings, or type the details.")
       CardScanActivity.ERROR_CAMERA -> promise.reject("E_CAMERA", "The camera couldn't start. Type the details instead.")
       CardScanActivity.ERROR_UNAVAILABLE ->
         promise.reject("E_UNAVAILABLE", "Card scanning isn't available on this phone. Type the details instead.")

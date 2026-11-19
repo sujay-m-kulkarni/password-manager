@@ -59,3 +59,16 @@ Bottom tabs: Vault · Settings (the password generator was removed in 1.6.0).
 "How to use Vault" (Help screen) opens from the Setup and Unlock screens without unlocking, and from Settings. It covers
 getting started, unlocking, saving passwords and PINs, copying, backups, what to do when something goes wrong, and
 keeping the vault safe. It holds no vault data.
+
+## Anchor refresh (1.10.0, design I)
+
+The app is renamed **Anchor** (package id unchanged, so it updates over Vault). Name and accent live in `app/src/brand.ts`; the
+launcher label in `res/values/strings.xml`; the icon is a brass anchor on deep ink (`res/drawable/ic_launcher_foreground.xml`,
+also the themed icon; PNG mipmaps for Android 7). Palette: ground #17181F, surfaces #22232F / #2C2D3B, accent brass #E2B866
+with #1D1E2A on it. Screens follow canvas section I: Unlock (mark, Touch to unlock circle, last backup line), Home (name +
+totals, backup strip, search with icon, type chips with icons, Favourites and Recently used tiles, rows grouped by type in one
+card with an icon copy button, "Add" button), Entry (header with type · edited time, grouped Login/PINs/Cards sections, card face),
+Settings (Daily backup card with both places, time and Back up now). The entry page keeps all parts on one scrolling page instead of
+the design's tabs: read-only details are quicker to scan without switching tabs. "Recently used" = entries opened or copied from,
+stored as `entries.used_at` (migration v6), which never changes `updated_at`.
+
