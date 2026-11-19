@@ -9,6 +9,9 @@
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
 
+    <!-- Daily backup (1.9.0): put the daily backup alarm back after the phone restarts. -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+
     <application
       android:name=".MainApplication"
       android:hasFragileUserData="true"
@@ -39,5 +42,13 @@
         android:theme="@style/AppTheme"
         android:screenOrientation="portrait"
         android:exported="false" />
+      <receiver
+        android:name=".backup.DailyBackupReceiver"
+        android:exported="false">
+        <intent-filter>
+          <action android:name="android.intent.action.BOOT_COMPLETED" />
+          <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+        </intent-filter>
+      </receiver>
     </application>
 </manifest>

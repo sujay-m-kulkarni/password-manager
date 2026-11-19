@@ -11,6 +11,7 @@ import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactContextBaseJavaModule
 import com.facebook.react.bridge.ReactMethod
+import com.vaultapp.backup.DailyBackup
 
 /**
  * Saves and opens backup files through Android's own file picker (Storage Access Framework):
@@ -109,35 +110,7 @@ class VaultFilesModule(private val reactContext: ReactApplicationContext) :
   @ReactMethod
   fun writeToFolder(treeUri: String, fileName: String, text: String, prefix: String, keep: Int, promise: Promise) {
     try {
-      val resolver = reactContext.contentResolver
-      val tree = Uri.parse(treeUri)
-      val folder = DocumentsContract.buildDocumentUriUsingTree(tree, DocumentsContract.getTreeDocumentId(tree))
-      val file = DocumentsContract.createDocument(resolver, folder, "application/octet-stream", fileName)
-        ?: throw IllegalStateException("Could not create the backup file.")
-      resolver.openOutputStream(file, "wt")!!.use { it.write(text.toByteArray(Charsets.UTF_8)) }
-
-      // Prune: newest first by name (names carry the date and time).
-      val children = DocumentsContract.buildChildDocumentsUriUsingTree(tree, DocumentsContract.getDocumentId(folder))
-      val ours = mutableListOf<Pair<String, String>>() // name, documentId
-      resolver.query(
-        children,
-        arrayOf(DocumentsContract.Document.COLUMN_DOCUMENT_ID, DocumentsContract.Document.COLUMN_DISPLAY_NAME),
-        null,
-        null,
-        null,
-      )?.use { c ->
-        while (c.moveToNext()) {
-          val name = c.getString(1) ?: continue
-          if (name.startsWith(prefix)) ours.add(name to c.getString(0))
-        }
-      }
-      ours.sortedByDescending { it.first }.drop(maxOf(1, keep)).forEach { (_, id) ->
-        try {
-          DocumentsContract.deleteDocument(resolver, DocumentsContract.buildDocumentUriUsingTree(tree, id))
-        } catch (_: Exception) {
-          // an old copy that can't be deleted is harmless
-        }
-      }
+      val file = DailyBackup.writeToFolder(reactContext.contentResolver, treeUri, fileName, text.toByteArray(Charsets.UTF_8), prefix, keep)
       val result = Arguments.createMap()
       result.putString("name", displayName(file) ?: fileName)
       promise.resolve(result)
@@ -145,6 +118,101 @@ class VaultFilesModule(private val reactContext: ReactApplicationContext) :
       promise.reject("E_NO_ACCESS", "Vault can no longer write to the backup folder. Choose it again in Settings.", e)
     } catch (e: Exception) {
       promise.reject("E_FILE", e.message ?: "Could not save the automatic backup.", e)
+    }
+  }
+
+  /**
+   * 1.9.0: saves a backup somewhere the person picks (meant for off the phone, e.g. Google Drive)
+   * and asks to keep access, so the daily backup can overwrite that same file later. Resolves to
+   * { uri, name, authority, persisted } or null if cancelled. `authority` tells where it went
+   * (Drive, phone storage…); `persisted` is false when that place won't let Vault update it later.
+   */
+  @ReactMethod
+  fun saveOffPhone(fileName: String, text: String, promise: Promise) {
+    val activity = reactContext.currentActivity
+    if (activity == null || pending != null) {
+      promise.reject("E_BUSY", "The file picker is not available right now.")
+      return
+    }
+    val intent = Intent(Intent.ACTION_CREATE_DOCUMENT)
+      .addCategory(Intent.CATEGORY_OPENABLE)
+      .setType("application/octet-stream")
+      .putExtra(Intent.EXTRA_TITLE, fileName)
+      .addFlags(
+        Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION or
+          Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION,
+      )
+    pending = promise
+    pendingText = text
+    try {
+      activity.startActivityForResult(intent, REQ_SAVE_KEEP)
+    } catch (e: Exception) {
+      clear()
+      promise.reject("E_PICKER", e.message, e)
+    }
+  }
+
+  /** Lets go of a file kept for the daily backup (it is replaced by another). The file stays. */
+  @ReactMethod
+  fun releaseFile(uri: String, promise: Promise) {
+    try {
+      reactContext.contentResolver.releasePersistableUriPermission(
+        Uri.parse(uri),
+        Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION,
+      )
+    } catch (_: Exception) {
+      // nothing held
+    }
+    promise.resolve(null)
+  }
+
+  /** The latest encrypted backup, kept in Vault's own storage for the daily copy. */
+  @ReactMethod
+  fun saveSnapshot(text: String, promise: Promise) {
+    try {
+      DailyBackup.saveSnapshot(reactContext, text)
+      promise.resolve(null)
+    } catch (e: Exception) {
+      promise.reject("E_FILE", e.message ?: "Could not prepare the daily backup.", e)
+    }
+  }
+
+  /** Where and when the daily backup goes; sets the alarm. Empty uri = not used. */
+  @ReactMethod
+  fun configureDaily(folderUri: String, driveUri: String, hour: Int, minute: Int, promise: Promise) {
+    try {
+      DailyBackup.configure(reactContext, folderUri.ifEmpty { null }, driveUri.ifEmpty { null }, hour, minute)
+      promise.resolve(statusMap())
+    } catch (e: Exception) {
+      promise.reject("E_SCHEDULE", e.message ?: "Could not set the daily backup.", e)
+    }
+  }
+
+  @ReactMethod
+  fun dailyStatus(promise: Promise) {
+    promise.resolve(statusMap())
+  }
+
+  /** Back up now: the same copy the daily alarm makes, off the UI thread. */
+  @ReactMethod
+  fun runDailyNow(promise: Promise) {
+    Thread {
+      try {
+        DailyBackup.run(reactContext)
+        promise.resolve(statusMap())
+      } catch (e: Exception) {
+        promise.reject("E_FILE", e.message ?: "Could not back up.", e)
+      }
+    }.start()
+  }
+
+  private fun statusMap() = Arguments.createMap().apply {
+    for ((k, v) in DailyBackup.status(reactContext)) {
+      when (v) {
+        is Double -> putDouble(k, v)
+        is String -> putString(k, v)
+        null -> putNull(k)
+      }
     }
   }
 
@@ -169,7 +237,7 @@ class VaultFilesModule(private val reactContext: ReactApplicationContext) :
   }
 
   override fun onActivityResult(activity: Activity, requestCode: Int, resultCode: Int, data: Intent?) {
-    if (requestCode != REQ_SAVE && requestCode != REQ_OPEN && requestCode != REQ_FOLDER) return
+    if (requestCode != REQ_SAVE && requestCode != REQ_OPEN && requestCode != REQ_FOLDER && requestCode != REQ_SAVE_KEEP) return
     val promise = pending ?: return
     val text = pendingText
     clear()
@@ -191,6 +259,29 @@ class VaultFilesModule(private val reactContext: ReactApplicationContext) :
         promise.resolve(result)
       } catch (e: Exception) {
         promise.reject("E_FOLDER", e.message ?: "Could not use that folder.", e)
+      }
+      return
+    }
+    if (requestCode == REQ_SAVE_KEEP) {
+      try {
+        reactContext.contentResolver.openOutputStream(uri, "wt")!!.use { it.write(text!!.toByteArray(Charsets.UTF_8)) }
+        val persisted = try {
+          reactContext.contentResolver.takePersistableUriPermission(
+            uri,
+            Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION,
+          )
+          true
+        } catch (_: Exception) {
+          false
+        }
+        val result = Arguments.createMap()
+        result.putString("uri", uri.toString())
+        result.putString("name", displayName(uri))
+        result.putString("authority", uri.authority ?: "")
+        result.putBoolean("persisted", persisted)
+        promise.resolve(result)
+      } catch (e: Exception) {
+        promise.reject("E_FILE", e.message ?: "Could not save the backup there.", e)
       }
       return
     }
@@ -241,6 +332,7 @@ class VaultFilesModule(private val reactContext: ReactApplicationContext) :
     private const val REQ_SAVE = 0x5A1
     private const val REQ_OPEN = 0x5A2
     private const val REQ_FOLDER = 0x5A3
+    private const val REQ_SAVE_KEEP = 0x5A4
     private const val MAX_BYTES = 50 * 1024 * 1024
   }
 }

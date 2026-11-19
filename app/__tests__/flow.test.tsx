@@ -12,6 +12,9 @@ import { NativeModules, TextInput } from 'react-native';
 import App from '../App';
 import { useSession } from '../src/store/session';
 
+// Whole-app flows wait for key derivation and screen changes; allow for a slow build machine.
+jest.setTimeout(60_000);
+
 const wait = (ms: number) => new Promise<void>(res => setTimeout(() => res(), ms));
 
 const textOf = (r: ReactTestRenderer.ReactTestRenderer) =>
@@ -19,6 +22,19 @@ const textOf = (r: ReactTestRenderer.ReactTestRenderer) =>
     .findAll(n => typeof n.props.children === 'string' || typeof n.props.children === 'number')
     .map(n => String(n.props.children))
     .join(' | ');
+
+/**
+ * Waits (up to 15 s) for text to appear. Key derivation and screen changes take longer on a busy
+ * build machine than here; a fixed wait made these tests fail at random (1.8.4's first build).
+ */
+const seen = async (r: ReactTestRenderer.ReactTestRenderer, text: string) => {
+  for (let i = 0; i < 150 && !textOf(r).includes(text); i++) {
+    await act(async () => {
+      await wait(100);
+    });
+  }
+  expect(textOf(r)).toContain(text);
+};
 
 const pressTab = async (r: ReactTestRenderer.ReactTestRenderer, label: string) => {
   const tab = r.root.findAll(
@@ -52,7 +68,7 @@ test('setup creates the vault and opens the Vault screen', async () => {
   await act(async () => {
     r = ReactTestRenderer.create(<App />);
   });
-  expect(textOf(r)).toContain('Create your master password');
+  await seen(r, 'Create your master password');
 
   const inputs = r.root.findAllByType(TextInput);
   await act(async () => {
@@ -62,7 +78,7 @@ test('setup creates the vault and opens the Vault screen', async () => {
   await pressButton(r, 'Create vault');
 
   // Step 2: the recovery key is shown once and must be confirmed as written down.
-  expect(textOf(r)).toContain('Your recovery key');
+  await seen(r, 'Your recovery key');
   const code = r.root
     .findAll(n => typeof n.props.accessibilityLabel === 'string' && n.props.accessibilityLabel.startsWith('Recovery key '))[0]
     .props.accessibilityLabel.replace('Recovery key ', '')
@@ -77,9 +93,10 @@ test('setup creates the vault and opens the Vault screen', async () => {
   await pressButton(r, 'Continue');
 
   // Step 3: no fingerprint hardware in the test, so it explains and continues.
-  expect(textOf(r)).toContain('Unlock with your fingerprint');
+  await seen(r, 'Unlock with your fingerprint');
   await pressButton(r, 'Continue');
 
+  await seen(r, 'My Vault');
   const after = textOf(r);
   expect(after).toContain('My Vault');
   expect(after).toContain('Banking');
@@ -89,7 +106,7 @@ test('setup creates the vault and opens the Vault screen', async () => {
     useSession.getState().lock();
     await wait(50);
   });
-  expect(textOf(r)).toContain('Welcome back');
+  await seen(r, 'Welcome back');
   await act(async () => {
     r.root.findAll(n => n.props.accessibilityRole === 'button' && n.findAll(t => t.props.children === 'Forgot password? Use recovery key').length > 0)[0].props.onPress();
   });
@@ -97,14 +114,14 @@ test('setup creates the vault and opens the Vault screen', async () => {
     r.root.findAllByType(TextInput)[0].props.onChangeText(code.toLowerCase());
   });
   await pressButton(r, 'Unlock');
-  expect(textOf(r)).toContain('Set a new master password');
+  await seen(r, 'Set a new master password');
   const pwInputs = r.root.findAllByType(TextInput);
   await act(async () => {
     pwInputs[0].props.onChangeText('seven quiet blue lanterns');
     pwInputs[1].props.onChangeText('seven quiet blue lanterns');
   });
   await pressButton(r, 'Save and open Vault');
-  expect(textOf(r)).toContain('My Vault');
+  await seen(r, 'My Vault');
 
   // The new password now opens the vault.
   await act(async () => {
@@ -115,7 +132,7 @@ test('setup creates the vault and opens the Vault screen', async () => {
     r.root.findAllByType(TextInput)[0].props.onChangeText('seven quiet blue lanterns');
   });
   await pressButton(r, 'Unlock');
-  expect(textOf(r)).toContain('My Vault');
+  await seen(r, 'My Vault');
   await act(async () => {
     r.unmount();
     await wait(50);
@@ -139,14 +156,14 @@ test('shows the crash report before anything else, until closed', async () => {
     r = ReactTestRenderer.create(<App />);
     await wait(50);
   });
-  expect(textOf(r)).toContain('Vault closed unexpectedly last time');
-  expect(textOf(r)).toContain('Vault 1.0.1 — report');
+  await seen(r, 'Vault closed unexpectedly last time');
+  await seen(r, 'Vault 1.0.1 — report');
   // Safe start: nothing of the vault runs while the report is shown.
   expect(textOf(r)).not.toContain('Welcome back');
   await pressButton(r, 'Close');
   expect(dismissCrash).toHaveBeenCalled();
   expect(textOf(r)).not.toContain('Vault closed unexpectedly last time');
-  expect(textOf(r)).toContain('Welcome back');
+  await seen(r, 'Welcome back');
   await act(async () => {
     r.unmount();
     await wait(50);
@@ -159,14 +176,14 @@ test('the guide opens from the unlock screen, without unlocking', async () => {
     r = ReactTestRenderer.create(<App />);
     await wait(50);
   });
-  expect(textOf(r)).toContain('Welcome back');
+  await seen(r, 'Welcome back');
   await pressButton(r, 'How to use Vault');
-  expect(textOf(r)).toContain('Getting started');
-  expect(textOf(r)).toContain('Write it on paper');
+  await seen(r, 'Getting started');
+  await seen(r, 'Write it on paper');
   await pressButton(r, 'Backups');
-  expect(textOf(r)).toContain('Settings › Export backup');
+  await seen(r, 'Daily backup: Vault saves an encrypted backup every day');
   await pressButton(r, '‹ Back');
-  expect(textOf(r)).toContain('Welcome back');
+  await seen(r, 'Welcome back');
   await act(async () => {
     r.unmount();
     await wait(50);
@@ -184,7 +201,7 @@ test('a new entry returns to the list; an edited one stays on its page, read-onl
     r.root.findAllByType(TextInput)[0].props.onChangeText('seven quiet blue lanterns');
   });
   await pressButton(r, 'Unlock');
-  expect(textOf(r)).toContain('My Vault');
+  await seen(r, 'My Vault');
 
   const fab = () => r.root.findAll(n => n.props.accessibilityLabel === 'Add password' && typeof n.props.onPress === 'function')[0];
   const fill = async (title: string, secret: string) => {
@@ -223,7 +240,7 @@ test('a new entry returns to the list; an edited one stays on its page, read-onl
   await act(async () => {
     r.root.findAllByType(TextInput).find(i => i.props.accessibilityLabel === 'Phone lock')!.props.onChangeText('482913');
   });
-  expect(textOf(r)).toContain('PINs · 1');
+  await seen(r, 'PINs · 1');
   await pressButton(r, 'Save');
   t = textOf(r);
   expect(t).toContain('My Vault');
@@ -231,7 +248,7 @@ test('a new entry returns to the list; an edited one stays on its page, read-onl
 
   // Edit from the entry's page → back on the list, not the entry page.
   await pressButton(r, 'Netflix');
-  expect(textOf(r)).toContain('Delete entry');
+  await seen(r, 'Delete entry');
   await pressButton(r, 'Edit');
   await act(async () => {
     r.root.findAllByType(TextInput).find(i => i.props.accessibilityLabel === 'Title')!.props.onChangeText('Netflix family');
@@ -249,7 +266,7 @@ test('a new entry returns to the list; an edited one stays on its page, read-onl
     r.root.findAllByType(TextInput).find(i => i.props.accessibilityLabel === 'Title')!.props.onChangeText('Changed');
   });
   await pressButton(r, 'Cancel');
-  expect(textOf(r)).toContain('Netflix family');
+  await seen(r, 'Netflix family');
   expect(textOf(r)).not.toContain('Changed');
 
   await act(async () => {
@@ -321,8 +338,8 @@ test('one Banking entry with a login, a UPI PIN and a debit card: read-only firs
   await act(async () => {
     show.props.onPress();
   });
-  expect(textOf(r)).toContain('4111 1111 1111 1111');
-  expect(textOf(r)).toContain('4829');
+  await seen(r, '4111 1111 1111 1111');
+  await seen(r, '4829');
 
   await act(async () => {
     r.unmount();
@@ -382,7 +399,7 @@ test('custom fields: fill a starting field, add a hidden one, find the entry by 
   await act(async () => {
     show.props.onPress();
   });
-  expect(textOf(r)).toContain('pr0file!');
+  await seen(r, 'pr0file!');
 
   await act(async () => {
     r.unmount();
@@ -413,7 +430,7 @@ test('Settings: change a type\'s starting fields; About shows the version histor
     await wait(50);
   });
   await pressButton(r, 'Entry types and their fields');
-  expect(textOf(r)).toContain('9 fields'); // Banking
+  await seen(r, '9 fields'); // Banking
   // The vault list behind has a "Social media" chip too: press the row on the top screen (last match).
   const rows = r.root.findAll(
     n => n.props.accessibilityRole === 'button' && typeof n.props.onPress === 'function' && n.findAll(t => t.props.children === 'Social media').length > 0,
@@ -427,7 +444,7 @@ test('Settings: change a type\'s starting fields; About shows the version histor
     r.root.findAllByType(TextInput).find(i => i.props.accessibilityLabel === 'Field 1')!.props.onChangeText('Handle');
   });
   await pressButton(r, 'Save');
-  expect(textOf(r)).toContain('1 field');
+  await seen(r, '1 field');
 
   await pressButton(r, '‹ Back');
   await pressButton(r, "About & what's new");
@@ -460,10 +477,68 @@ test('an error while drawing a screen shows the report instead of closing the ap
     await wait(20);
   });
   spy.mockRestore();
-  expect(textOf(r)).toContain('Something went wrong');
-  expect(textOf(r)).toContain('example failure');
+  await seen(r, 'Something went wrong');
+  await seen(r, 'example failure');
   expect(saveReport).toHaveBeenCalledWith('App error', expect.stringContaining('example failure'));
   await act(async () => {
     r.unmount();
   });
+});
+
+test('1.9.0: after unlocking, Vault opens only once a daily backup is set up', async () => {
+  const status = { lastRunAt: 0, folderOkAt: 0, driveOkAt: 0, snapshotAt: 0, nextAt: 0, error: null };
+  let authority = 'com.android.externalstorage.documents';
+  NativeModules.VaultFiles = {
+    pickFolder: jest.fn(async () => ({ uri: 'content://tree/Backups', name: 'Backups' })),
+    canWriteFolder: jest.fn(async () => true),
+    releaseFolder: jest.fn(async () => null),
+    writeToFolder: jest.fn(async (_u: string, name: string) => ({ name })),
+    saveOffPhone: jest.fn(async (fileName: string) => ({ uri: `content://${authority}/${fileName}`, name: fileName, authority, persisted: true })),
+    releaseFile: jest.fn(async () => null),
+    saveSnapshot: jest.fn(async () => null),
+    configureDaily: jest.fn(async () => status),
+    dailyStatus: jest.fn(async () => status),
+    runDailyNow: jest.fn(async () => status),
+  };
+  try {
+    let r!: ReactTestRenderer.ReactTestRenderer;
+    await act(async () => {
+      r = ReactTestRenderer.create(<App />);
+    });
+    // The vault from the earlier tests (made before 1.9): unlocking now asks for the backup first.
+    await act(async () => {
+      await wait(50);
+      r.root.findAllByType(TextInput)[0].props.onChangeText('seven quiet blue lanterns');
+    });
+    await pressButton(r, 'Unlock');
+
+    // The backup screen, with the reason, instead of the vault.
+    await seen(r, 'Set up your backup');
+    await seen(r, 'Why Vault insists on this');
+    expect(textOf(r)).not.toContain('My Vault');
+    const done = () =>
+      r.root.findAll(n => n.props.accessibilityRole === 'button' && n.findAll(t => t.props.children === 'Done: open Vault').length > 0)[0];
+    expect(done().props.accessibilityState.disabled).toBe(true);
+
+    await pressButton(r, 'Choose folder');
+    await seen(r, 'Saving to “Backups”');
+
+    // Saved on the phone itself: not accepted.
+    await pressButton(r, 'Save to Google Drive');
+    await seen(r, 'That file was saved on this phone');
+    expect(done().props.accessibilityState.disabled).toBe(true);
+
+    authority = 'com.google.android.apps.docs.storage';
+    await pressButton(r, 'Save to Google Drive');
+    await seen(r, 'on Google Drive. Vault updates this file every day.');
+    expect(done().props.accessibilityState.disabled).toBe(false);
+
+    await pressButton(r, 'Done: open Vault');
+    await seen(r, 'My Vault');
+    await act(async () => {
+      r.unmount();
+    });
+  } finally {
+    delete NativeModules.VaultFiles;
+  }
 });

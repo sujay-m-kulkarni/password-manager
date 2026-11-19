@@ -1,7 +1,7 @@
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { NavigationContainer, DarkTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, StatusBar, StyleSheet, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { CrashGate, ErrorBoundary } from './src/components/CrashReportNotice';
@@ -15,6 +15,8 @@ import { EntryDetailScreen } from './src/features/vault/EntryDetailScreen';
 import { VaultScreen } from './src/features/vault/VaultScreen';
 import type { RootStackParamList, TabParamList } from './src/navigation/types';
 import { AutoBackup } from './src/security/AutoBackup';
+import { currentGate, type Gate } from './src/security/dailyBackup';
+import { BackupSetupScreen } from './src/features/settings/BackupSetupScreen';
 import { AutoLock } from './src/security/AutoLock';
 import { useSession } from './src/store/session';
 import { colors, fonts } from './src/theme';
@@ -61,15 +63,42 @@ export default function App() {
   );
 }
 
+/**
+ * 1.9.0: after unlocking, Vault opens only once a daily backup is set up (and only while the copy
+ * off the phone isn't more than 30 days behind). Re-checked after every change.
+ */
+function useBackupGate(): Gate | 'checking' {
+  const status = useSession(s => s.status);
+  const db = useSession(s => s.db);
+  const dataVersion = useSession(s => s.dataVersion);
+  const [gate, setGate] = useState<Gate | 'checking'>('checking');
+  useEffect(() => {
+    if (status !== 'unlocked' || !db) {
+      setGate('checking');
+      return;
+    }
+    let live = true;
+    currentGate(db)
+      .catch((): Gate => 'ok')
+      .then(g => live && setGate(g));
+    return () => {
+      live = false;
+    };
+  }, [status, db, dataVersion]);
+  return gate;
+}
+
 function VaultApp() {
   const status = useSession(s => s.status);
   const init = useSession(s => s.init);
+  const gate = useBackupGate();
+  const gated = gate === 'setup' || gate === 'blocked';
 
   useEffect(() => {
     init();
   }, [init]);
 
-  if (status === 'loading') {
+  if (status === 'loading' || (status === 'unlocked' && gate === 'checking')) {
     return (
       <View style={styles.loading}>
         <ActivityIndicator color={colors.primary} />
@@ -88,7 +117,10 @@ function VaultApp() {
             {status === 'locked' && (
               <Stack.Screen name="Unlock" component={UnlockScreen} options={{ animationTypeForReplace: 'pop' }} />
             )}
-            {status === 'unlocked' && (
+            {status === 'unlocked' && gated && (
+              <Stack.Screen name="BackupSetup" component={BackupSetupScreen} initialParams={{ mode: gate === 'blocked' ? 'blocked' : 'setup' }} />
+            )}
+            {status === 'unlocked' && !gated && (
               <>
                 <Stack.Screen name="Tabs" component={Tabs} />
                 <Stack.Screen name="Entry" component={EntryDetailScreen} />

@@ -4,6 +4,14 @@ What's new in each release, newest first. The GitHub release notes are made from
 merged pull request (`app/scripts/release-notes.mjs`); this file keeps the whole history in one place and is updated
 in every PR.
 
+## 1.9.0
+
+- Backup is now required: after unlocking, Vault asks you to set up a daily backup before you can use it, and explains why. Vault is offline, so without a copy off the phone a lost, stolen or broken phone means everything is gone.
+- Daily backup at a time you choose (7 am, 1 pm, 9 pm or 11 pm), even while Vault is closed: a copy in a folder on this phone (the last 7 days kept) and a copy on Google Drive that Vault updates every day. Both are encrypted and open only with your master password or recovery key; Vault itself still never goes online.
+- If Drive doesn't let Vault update its file by itself, Vault reminds you after a week of changes to save a fresh copy, and after a month opens only on the backup screen until you do.
+- Settings › Backup shows the daily time, both places, when the last daily backup ran and when the next one is, with Back up now.
+- Help explains what to do if your phone is lost or stolen.
+
 ## 1.8.4
 
 - The scanner takes its time and closes by itself when it's done: after finding the number (or, on a side without it, the expiry) it keeps reading until nothing new turns up, so the bank's name and the rest of the card are read too. No need to tap Done; it's still there if you want to stop early.

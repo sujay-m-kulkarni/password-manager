@@ -16,9 +16,12 @@ on:
         type: boolean
         default: false
 
+# A newer push to a PR branch replaces its running build. On main every merge publishes a release,
+# so main builds queue instead of cancelling each other (1.8.4: a merge 5 minutes after another
+# cancelled its release, and the version numbers shifted).
 concurrency:
   group: android-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 permissions:
   contents: read

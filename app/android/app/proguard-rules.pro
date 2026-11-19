@@ -17,3 +17,6 @@
 -keep class com.google.android.gms.internal.mlkit_common.** { *; }
 -keep class androidx.camera.** { *; }
 -keep class com.vaultapp.cardscan.** { *; }
+
+# Daily backup (1.9.0): the receiver is created by Android from the manifest.
+-keep class com.vaultapp.backup.** { *; }
