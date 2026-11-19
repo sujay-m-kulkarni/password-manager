@@ -4,6 +4,10 @@ What's new in each release, newest first. The GitHub release notes are made from
 merged pull request (`app/scripts/release-notes.mjs`); this file keeps the whole history in one place and is updated
 in every PR.
 
+## 1.8.4
+
+- The scanner takes its time and closes by itself when it's done: after finding the number (or, on a side without it, the expiry) it keeps reading until nothing new turns up, so the bank's name and the rest of the card are read too. No need to tap Done; it's still there if you want to stop early.
+
 ## 1.8.3
 
 - Fixed: the bank's name read from a scanned card was only used as an untitled entry's title, so it usually seemed lost. Each card now has its own Bank / issuer field, which a scan fills in, and the bank shows in the card's title (e.g. "HDFC Bank · Debit · Visa").
