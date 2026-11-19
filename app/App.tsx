@@ -21,6 +21,7 @@ import { AutoLock } from './src/security/AutoLock';
 import { useSession } from './src/store/session';
 import { colors, fonts } from './src/theme';
 import { Icon, type IconName } from './src/components/Icon';
+import { APP_NAME } from './src/brand';
 import { AboutScreen } from './src/features/settings/AboutScreen';
 import { EntryTypesScreen, TypeFieldsScreen } from './src/features/settings/EntryTypesScreen';
 
@@ -43,7 +44,12 @@ function Tabs() {
         tabBarInactiveTintColor: colors.muted,
         tabBarStyle: styles.tabBar,
         tabBarLabelStyle: styles.tabLabel,
-        tabBarIcon: ({ color }) => <Icon name={TAB_ICON[route.name]} color={color} />,
+        tabBarLabel: route.name === 'Vault' ? APP_NAME : route.name,
+        tabBarIcon: ({ color, focused }) => (
+          <View style={[styles.tabIcon, focused && styles.tabIconOn]}>
+            <Icon name={TAB_ICON[route.name]} color={color} size={22} />
+          </View>
+        ),
       })}>
       <Tab.Screen name="Vault" component={VaultScreen} />
       <Tab.Screen name="Settings" component={SettingsScreen} />
@@ -144,6 +150,8 @@ function VaultApp() {
 
 const styles = StyleSheet.create({
   loading: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.bg },
-  tabBar: { backgroundColor: colors.surface, borderTopColor: colors.border, height: 68, paddingTop: 6 },
-  tabLabel: { fontFamily: fonts.bold, fontSize: 12 },
+  tabBar: { backgroundColor: colors.surface, borderTopColor: colors.divider, height: 76, paddingTop: 8, paddingBottom: 10 },
+  tabLabel: { fontFamily: fonts.bold, fontSize: 12, marginTop: 2 },
+  tabIcon: { width: 56, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
+  tabIconOn: { backgroundColor: colors.accentTint },
 });

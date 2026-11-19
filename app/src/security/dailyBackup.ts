@@ -101,7 +101,7 @@ export function offPhoneState(db: DB): OffPhone | null {
   const at = getSetting(db, K_OFF_AT);
   return {
     uri,
-    name: getSetting(db, K_OFF_NAME) || 'Vault backup',
+    name: getSetting(db, K_OFF_NAME) || 'Anchor backup',
     authority,
     place: placeName(authority),
     persisted: getSetting(db, K_OFF_PERSISTED) === '1',

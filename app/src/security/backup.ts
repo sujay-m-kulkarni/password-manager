@@ -125,13 +125,13 @@ export function parseBackup(text: string): BackupFile {
   try {
     f = JSON.parse(text) as BackupFile;
   } catch {
-    throw new Error('This file is not a Vault backup.');
+    throw new Error('This file is not an Anchor (or Vault) backup.');
   }
   if (f?.format !== BACKUP_FORMAT || !f.pw || !f.kdf || !f.data) {
-    throw new Error('This file is not a Vault backup.');
+    throw new Error('This file is not an Anchor (or Vault) backup.');
   }
   if (f.v !== 1) {
-    throw new Error('This backup was made by a newer version of Vault. Update the app first.');
+    throw new Error('This backup was made by a newer version of Anchor. Update the app first.');
   }
   return f;
 }

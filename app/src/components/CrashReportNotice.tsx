@@ -48,7 +48,7 @@ export async function takeLastCrash(): Promise<CrashInfo | null> {
 
 export function formatCrashReport(c: CrashInfo): string {
   return [
-    `Vault ${c.appVersion || ''} — report`,
+    `Anchor ${c.appVersion || ''} — report`,
     `When: ${new Date(c.when).toISOString()}`,
     `Reason: ${c.reason}`,
     `Device: ${c.device}`,
@@ -78,7 +78,7 @@ export function CrashGate({ children }: { children: React.ReactNode }) {
     return (
       <CrashReportView
         crash={state}
-        title="Vault closed unexpectedly last time"
+        title="Anchor closed unexpectedly last time"
         onClose={() => {
           dismissCrash();
           setState('none');

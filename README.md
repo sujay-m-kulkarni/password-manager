@@ -1,4 +1,4 @@
-# Vault — offline password manager for Android
+# Anchor (formerly Vault) — offline password manager for Android
 
 A personal password manager that keeps everything encrypted on the phone and **never connects to the internet**:
 the release APK has no network permission, and the build pipeline refuses to publish one that does.

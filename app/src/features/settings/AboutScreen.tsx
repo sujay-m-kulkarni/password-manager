@@ -23,12 +23,13 @@ export function AboutScreen({ navigation }: NativeStackScreenProps<RootStackPara
   return (
     <Screen title="About & what's new" onBack={() => navigation.goBack()}>
       <View style={s.card}>
-        <Text style={s.appName}>{`Vault ${installed}`}</Text>
+        <Text style={s.appName}>{`Anchor ${installed}`}</Text>
         <Text style={s.body}>
           A password manager that keeps everything encrypted on this phone. It has no internet permission, so nothing you save
           leaves the phone unless you export a backup.
         </Text>
-        <Button title="How to use Vault" small variant="soft" onPress={() => navigation.navigate('Help')} style={{ alignSelf: 'flex-start' }} />
+        <Text style={s.body}>Called Vault until version 1.9. Same app, same vault: only the name, icon and look changed.</Text>
+        <Button title="How to use Anchor" small variant="soft" onPress={() => navigation.navigate('Help')} style={{ alignSelf: 'flex-start' }} />
       </View>
 
       <Text style={s.section}>What's new</Text>
@@ -41,7 +42,7 @@ export function AboutScreen({ navigation }: NativeStackScreenProps<RootStackPara
               accessibilityState={{ expanded }}
               onPress={() => setOpen(expanded ? '' : r.version)}
               style={s.head}>
-              <Text style={s.version}>{`Vault ${r.version}`}</Text>
+              <Text style={s.version}>{`Anchor ${r.version}`}</Text>
               {r.version === installed && <Text style={s.badge}>Installed</Text>}
               <View style={{ flex: 1 }} />
               <Icon name={expanded ? 'minus' : 'plus'} size={20} color={colors.primary} strokeWidth={2.5} />

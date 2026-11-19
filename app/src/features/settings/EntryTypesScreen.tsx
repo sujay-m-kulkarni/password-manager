@@ -88,7 +88,7 @@ export function TypeFieldsScreen({ navigation, route }: NativeStackScreenProps<R
   };
 
   const reset = () =>
-    Alert.alert(`Reset ${info.label} fields?`, `Back to Vault's list of ${DEFAULT_FIELDS[type].length} fields. Saved entries keep their values.`, [
+    Alert.alert(`Reset ${info.label} fields?`, `Back to Anchor's list of ${DEFAULT_FIELDS[type].length} fields. Saved entries keep their values.`, [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Reset',

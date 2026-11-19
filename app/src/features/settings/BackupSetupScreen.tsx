@@ -18,11 +18,11 @@ import { colors, fonts } from '../../theme';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'BackupSetup'>;
 
-export const WHY_TITLE = 'Why Vault insists on this';
+export const WHY_TITLE = 'Why Anchor insists on this';
 export const WHY = [
-  'Vault is fully offline: no account, no server, no copy anywhere else. That keeps your passwords private, but it also means that if this phone is lost, stolen, broken or reset, or Vault is uninstalled, everything in it is gone for good. Nobody can recover it for you, not even us.',
-  'A copy on Google Drive is what gets everything back on a new phone: install Vault, tap “New phone? Restore from a backup”, pick the file.',
-  'The copy is encrypted before it leaves Vault. Google, or anyone who gets the file, sees only scrambled data; it opens only with your master password or recovery key. Vault itself still never goes online: it hands the file to Android, and the Drive app uploads it.',
+  'Anchor is fully offline: no account, no server, no copy anywhere else. That keeps your passwords private, but it also means that if this phone is lost, stolen, broken or reset, or Anchor is uninstalled, everything in it is gone for good. Nobody can recover it for you, not even us.',
+  'A copy on Google Drive is what gets everything back on a new phone: install Anchor, tap “New phone? Restore from a backup”, pick the file.',
+  'The copy is encrypted before it leaves Anchor. Google, or anyone who gets the file, sees only scrambled data; it opens only with your master password or recovery key. Anchor itself still never goes online: it hands the file to Android, and the Drive app uploads it.',
 ];
 
 export function BackupSetupScreen({ navigation, route }: Props) {
@@ -69,7 +69,7 @@ export function BackupSetupScreen({ navigation, route }: Props) {
       } else if (r.saved) {
         setOff(offPhoneState(db));
         if (blocked) {
-          touchData(); // up to date again: Vault opens
+          touchData(); // up to date again: Anchor opens
         }
       }
     } catch (e) {
@@ -88,7 +88,7 @@ export function BackupSetupScreen({ navigation, route }: Props) {
     setBusy('done');
     try {
       await configureDaily(db);
-      touchData(); // the gate re-checks and opens Vault
+      touchData(); // the gate re-checks and opens Anchor
     } catch (e) {
       Alert.alert('Daily backup not set', e instanceof Error ? e.message : 'Something went wrong.');
     } finally {
@@ -104,7 +104,7 @@ export function BackupSetupScreen({ navigation, route }: Props) {
           <Text style={s.title}>Save a fresh backup</Text>
           <Text style={s.lead}>
             Your copy on {off?.place ?? 'Google Drive'} is {days} days old, and you've changed entries since. Save a fresh copy to keep
-            using Vault.
+            using Anchor.
           </Text>
           <Why />
           {onPhoneWarning && <OnPhoneWarning />}
@@ -122,14 +122,14 @@ export function BackupSetupScreen({ navigation, route }: Props) {
     <SafeAreaView style={s.root}>
       <ScrollView contentContainerStyle={s.content}>
         <Text style={s.title}>Set up your backup</Text>
-        <Text style={s.lead}>Three steps, once. Then Vault backs itself up every day at the time you choose.</Text>
+        <Text style={s.lead}>Three steps, once. Then Anchor backs itself up every day at the time you choose.</Text>
         <Why />
 
         <Step n={1} done={folder != null} title="A daily copy on this phone">
           <Text style={s.body}>
             {folder
               ? `Saving to “${folder.folder}”. The last 7 days are kept, so you can go back to yesterday's copy.`
-              : 'Pick a folder (for example Downloads or Documents). Vault keeps the last 7 daily copies there.'}
+              : 'Pick a folder (for example Downloads or Documents). Anchor keeps the last 7 daily copies there.'}
           </Text>
           <Button
             title={folder ? 'Change folder' : 'Choose folder'}
@@ -146,8 +146,8 @@ export function BackupSetupScreen({ navigation, route }: Props) {
           <Text style={s.body}>
             {off
               ? off.persisted
-                ? `Saved as “${off.name}” on ${off.place}. Vault updates this file every day.`
-                : `Saved as “${off.name}” on ${off.place}. ${off.place} doesn't let Vault update the file by itself, so Vault will remind you to save a fresh copy.`
+                ? `Saved as “${off.name}” on ${off.place}. Anchor updates this file every day.`
+                : `Saved as “${off.name}” on ${off.place}. ${off.place} doesn't let Anchor update the file by itself, so Anchor will remind you to save a fresh copy.`
               : 'This is the copy that survives a lost or stolen phone. In the Save screen, tap ☰ and choose Drive.'}
           </Text>
           {onPhoneWarning && <OnPhoneWarning />}
@@ -178,12 +178,12 @@ export function BackupSetupScreen({ navigation, route }: Props) {
               );
             })}
           </View>
-          <Text style={s.hint}>Works while Vault is closed. Android may run it a few minutes late to save battery.</Text>
+          <Text style={s.hint}>Works while Anchor is closed. Android may run it a few minutes late to save battery.</Text>
         </Step>
 
         {error && <Banner text={error} />}
-        <Button title="Done: open Vault" onPress={finish} disabled={!ready} loading={busy === 'done'} />
-        {!ready && <Text style={s.tip}>Finish steps 1 and 2 to open Vault.</Text>}
+        <Button title="Done: open Anchor" onPress={finish} disabled={!ready} loading={busy === 'done'} />
+        {!ready && <Text style={s.tip}>Finish steps 1 and 2 to open Anchor.</Text>}
         <Footer onHelp={() => navigation.navigate('Help')} onLock={() => lock()} />
       </ScrollView>
     </SafeAreaView>
@@ -229,7 +229,7 @@ function Step({ n, done, title, children }: { n: number; done: boolean; title: s
 function Footer({ onHelp, onLock }: { onHelp: () => void; onLock: () => void }) {
   return (
     <View style={s.footer}>
-      <Button title="How to use Vault" small variant="ghost" onPress={onHelp} />
+      <Button title="How to use Anchor" small variant="ghost" onPress={onHelp} />
       <Button title="Lock" small variant="ghost" onPress={onLock} />
     </View>
   );

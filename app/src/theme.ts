@@ -1,22 +1,26 @@
-// Option G — "Dusk Soft Dark": soft charcoal ground, pale lavender accent, muted pastel folders.
-// Text colours are chosen for at least 4.5:1 contrast on the surfaces they sit on.
+// Option G — "Dusk Soft Dark", refreshed in 1.10.0 (design I): a deeper ink ground, the accent from
+// brand.ts, muted pastel types. Text colours keep at least 4.5:1 contrast on the surfaces they sit on.
+import { ACCENT, ACCENT_TINT, ON_ACCENT } from './brand';
+
 export const colors = {
-  primary: '#A99CF0', // accent: buttons, links, active tab
-  onPrimary: '#1E1F2B', // text and icons on the accent
-  primarySoft: '#33354A', // soft buttons, chips
-  bg: '#1E1F2B', // screen background
-  surface: '#272938', // cards, inputs, tab bar
-  raised: '#33354A', // things on cards: segmented control thumb, switch track
-  deep: '#16171F', // recessed panels: recovery code, toast
-  ink: '#E9E8F2',
-  inkSoft: '#C4C3D4',
-  muted: '#A9A8BC',
-  border: '#3A3C52',
-  divider: '#33354A',
+  primary: ACCENT, // accent: buttons, links, active tab
+  onPrimary: ON_ACCENT, // text and icons on the accent
+  primarySoft: '#2C2D3B', // soft buttons, icon buttons
+  accentTint: ACCENT_TINT, // behind the active tab's icon
+  bg: '#17181F', // screen background
+  surface: '#22232F', // cards, inputs, tab bar
+  raised: '#2C2D3B', // things on cards: segmented control thumb, switch track
+  deep: '#0F1016', // recessed panels: recovery code, toast
+  ink: '#ECEAF3',
+  inkSoft: '#C9C6D6',
+  muted: '#A9A6BA',
+  border: '#34364A',
+  divider: '#2C2D3B',
   danger: '#F2A5AA',
   dangerSoft: '#3D2529',
   success: '#A8D4B5',
-  successSoft: '#26362C',
+  successSoft: '#1F2A23',
+  successInk: '#C8E3D0',
   warn: '#E8C79E',
   warnSoft: '#3A3125',
   warnInk: '#E8C79E',

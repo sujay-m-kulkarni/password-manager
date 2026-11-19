@@ -143,8 +143,8 @@ describe('backup', () => {
   });
 
   it('rejects files that are not backups, or are damaged', async () => {
-    expect(() => parseBackup('hello')).toThrow('not a Vault backup');
-    expect(() => parseBackup('{"format":"other"}')).toThrow('not a Vault backup');
+    expect(() => parseBackup('hello')).toThrow('not an Anchor (or Vault) backup');
+    expect(() => parseBackup('{"format":"other"}')).toThrow('not an Anchor (or Vault) backup');
     const { db, dek } = await createVault(PW);
     add(db, 'Gmail');
     const file = parseBackup(createBackup(db, dek).text);

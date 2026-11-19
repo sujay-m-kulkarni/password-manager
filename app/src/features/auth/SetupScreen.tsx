@@ -65,7 +65,7 @@ export function SetupScreen() {
             <Text style={st.linkText}>New phone? Restore from a backup</Text>
           </Pressable>
           <Pressable accessibilityRole="button" onPress={() => navigation.navigate('Help')} style={st.link}>
-            <Text style={st.linkText}>How to use Vault</Text>
+            <Text style={st.linkText}>How to use Anchor</Text>
           </Pressable>
         </Screen>
       );
@@ -90,7 +90,7 @@ export function SetupScreen() {
         <Screen
           kicker="STEP 3 OF 3"
           title="Unlock with your fingerprint"
-          body="Open Vault with a touch instead of typing the master password. Once a week Vault asks for the password, so you don't forget it.">
+          body="Open Anchor with a touch instead of typing the master password. Once a week Anchor asks for the password, so you don't forget it.">
           <Steps at={2} />
           <BiometricOffer dek={step.opened.dek} onDone={() => finish(step.opened)} />
         </Screen>

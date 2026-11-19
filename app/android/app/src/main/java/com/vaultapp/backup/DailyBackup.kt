@@ -114,7 +114,7 @@ object DailyBackup {
     val errors = mutableListOf<String>()
     val snap = snapshotFile(c)
     if (!snap.exists()) {
-      edit.putString("error", "No backup to copy yet. Open Vault once to prepare it.").apply()
+      edit.putString("error", "No backup to copy yet. Open Anchor once to prepare it.").apply()
       return
     }
     val bytes = try {
@@ -128,7 +128,7 @@ object DailyBackup {
         writeToFolder(c.contentResolver, folder, fileName(Date(now)), bytes, PREFIX, KEEP)
         edit.putLong("folderOkAt", now)
       } catch (e: SecurityException) {
-        errors.add("Vault can no longer write to the backup folder. Choose it again in Settings.")
+        errors.add("Anchor can no longer write to the backup folder. Choose it again in Settings.")
       } catch (e: Exception) {
         errors.add("The backup folder could not be written: ${e.message ?: "unknown error"}.")
       }
@@ -138,7 +138,7 @@ object DailyBackup {
         overwrite(c.contentResolver, Uri.parse(drive), bytes)
         edit.putLong("driveOkAt", now)
       } catch (e: SecurityException) {
-        errors.add("Vault can no longer update the copy off this phone. Save it again in Settings.")
+        errors.add("Anchor can no longer update the copy off this phone. Save it again in Settings.")
       } catch (e: Exception) {
         errors.add("The copy off this phone could not be updated: ${e.message ?: "unknown error"}.")
       }

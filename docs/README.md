@@ -1,4 +1,4 @@
-# Vault documentation
+# Anchor (formerly Vault) documentation
 
 | Document | What it covers |
 |---|---|

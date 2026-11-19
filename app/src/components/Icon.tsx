@@ -18,7 +18,17 @@ export type IconName =
   | 'refresh'
   | 'chevron-left'
   | 'chevron-right'
-  | 'check';
+  | 'check'
+  | 'copy'
+  | 'search'
+  | 'eye'
+  | 'eye-off'
+  | 'bank'
+  | 'chart'
+  | 'people'
+  | 'mail'
+  | 'grid'
+  | 'pin';
 
 const STAR = 'M12 3.5l2.6 5.3 5.9.9-4.25 4.1 1 5.85L12 16.9l-5.25 2.75 1-5.85L3.5 9.7l5.9-.9z';
 
@@ -41,6 +51,16 @@ const PATHS: Record<IconName, string[]> = {
   'chevron-left': ['M14.5 6l-6 6 6 6'],
   'chevron-right': ['M9.5 6l6 6-6 6'],
   check: ['M5 12.5l4.5 4.5L19 7.5'],
+  copy: ['M8 8h12v12H8z', 'M16 8V5.5A1.5 1.5 0 0014.5 4h-9A1.5 1.5 0 004 5.5v9A1.5 1.5 0 005.5 16H8'],
+  search: ['M11 4a7 7 0 100 14 7 7 0 000-14z', 'M20 20l-3.5-3.5'],
+  eye: ['M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z', 'M12 9a3 3 0 100 6 3 3 0 000-6z'],
+  'eye-off': ['M3 3l18 18', 'M10.6 5.1A10 10 0 0112 5c6.5 0 10 7 10 7a17 17 0 01-3 3.9', 'M6.6 6.6C3.7 8.4 2 12 2 12s3.5 7 10 7c1.9 0 3.5-.6 4.9-1.4', 'M9.9 9.9a3 3 0 004.2 4.2'],
+  bank: ['M3 10l9-6 9 6', 'M5 10v8', 'M10 10v8', 'M14 10v8', 'M19 10v8', 'M3 20h18'],
+  chart: ['M4 18l5-6 4 3 7-8', 'M4 20h16'],
+  people: ['M9 11a3.5 3.5 0 100-7 3.5 3.5 0 000 7z', 'M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6', 'M16 4.5a3.5 3.5 0 010 6.5', 'M18 14c2 .7 3 2.8 3 6'],
+  mail: ['M3 6h18v12H3z', 'M3 7l9 6 9-6'],
+  grid: ['M4 4h7v7H4z', 'M13 4h7v7h-7z', 'M4 13h7v7H4z', 'M13 13h7v7h-7z'],
+  pin: ['M2 7h20v10H2z', 'M7 12h.01', 'M12 12h.01', 'M17 12h.01'],
 };
 
 const FILLED: Partial<Record<IconName, true>> = { star: true };

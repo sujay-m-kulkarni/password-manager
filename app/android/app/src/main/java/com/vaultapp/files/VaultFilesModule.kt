@@ -115,7 +115,7 @@ class VaultFilesModule(private val reactContext: ReactApplicationContext) :
       result.putString("name", displayName(file) ?: fileName)
       promise.resolve(result)
     } catch (e: SecurityException) {
-      promise.reject("E_NO_ACCESS", "Vault can no longer write to the backup folder. Choose it again in Settings.", e)
+      promise.reject("E_NO_ACCESS", "Anchor can no longer write to the backup folder. Choose it again in Settings.", e)
     } catch (e: Exception) {
       promise.reject("E_FILE", e.message ?: "Could not save the automatic backup.", e)
     }
@@ -299,7 +299,7 @@ class VaultFilesModule(private val reactContext: ReactApplicationContext) :
             val n = input.read(buf)
             if (n < 0) break
             total += n
-            if (total > MAX_BYTES) throw IllegalStateException("This file is too large to be a Vault backup.")
+            if (total > MAX_BYTES) throw IllegalStateException("This file is too large to be an Anchor backup.")
             out.write(buf, 0, n)
           }
           out.toByteArray()
