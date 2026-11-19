@@ -42,6 +42,8 @@ export type BackupCard = {
   expiry: string | null;
   name: string | null;
   pin: string | null;
+  /** Backups before 1.8.3 have none. */
+  bank?: string | null;
   created_at: number;
   updated_at: number;
 };
@@ -215,9 +217,9 @@ export function restoreInto(db: DB, data: BackupData) {
     }
     for (const c of data.cards ?? []) {
       db.executeSync(
-        `INSERT INTO cards (id, entry_id, kind, number, expiry, name, pin, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [c.id, c.entry_id, c.kind, c.number, c.expiry, c.name, c.pin, c.created_at, c.updated_at],
+        `INSERT INTO cards (id, entry_id, kind, number, expiry, name, pin, bank, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [c.id, c.entry_id, c.kind, c.number, c.expiry, c.name, c.pin, c.bank ?? null, c.created_at, c.updated_at],
       );
     }
     db.executeSync('COMMIT');

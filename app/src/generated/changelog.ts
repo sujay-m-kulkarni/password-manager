@@ -3,6 +3,14 @@ export type Release = { version: string; points: string[] };
 
 export const CHANGELOG: Release[] = [
   {
+    "version": "1.8.3",
+    "points": [
+      "Fixed: the bank's name read from a scanned card was only used as an untitled entry's title, so it usually seemed lost. Each card now has its own Bank / issuer field, which a scan fills in, and the bank shows in the card's title (e.g. \"HDFC Bank · Debit · Visa\").",
+      "The scanner now keeps reading for a moment after it finds the number (\"Hold still a moment…\"), giving it time to read the bank's name, which is often in large, stylised lettering.",
+      "New \"What the scanner read\" link under a scanned card shows the text the camera picked up (card numbers and CVV hidden), so you can see why something was missed."
+    ]
+  },
+  {
     "version": "1.8.2",
     "points": [
       "Scanning a card now also reads the bank's name (HDFC, SBI, ICICI, Axis, Kotak and over 40 other Indian banks and card issuers). A new entry without a title gets the bank as its title.",

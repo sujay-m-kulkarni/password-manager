@@ -11,9 +11,11 @@ export type Card = {
   name: string;
   /** Card / ATM PIN, digits. Optional. */
   pin: string;
+  /** The bank or issuer printed on the card (1.8.3); read by a scan or typed. Optional. */
+  bank: string;
 };
 
-export const emptyCard = (kind: CardKind = 'debit'): Card => ({ kind, number: '', expiry: '', name: '', pin: '' });
+export const emptyCard = (kind: CardKind = 'debit'): Card => ({ kind, number: '', expiry: '', name: '', pin: '', bank: '' });
 
 export const digits = (s: string) => s.replace(/\D/g, '');
 

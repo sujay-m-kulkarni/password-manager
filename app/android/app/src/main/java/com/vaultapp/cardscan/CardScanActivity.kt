@@ -62,6 +62,7 @@ class CardScanActivity : ComponentActivity() {
   private lateinit var preview: PreviewView
   private lateinit var hint: TextView
   @Volatile private var done = false
+  @Volatile private var confirmed: String? = null
 
   private val askCamera = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
     if (granted) startCamera() else finishWith(null, ERROR_PERMISSION)
@@ -168,10 +169,16 @@ class CardScanActivity : ComponentActivity() {
         val frameLines = text.textBlocks.flatMap { b -> b.lines.map { it.text.trim() } }.filter { it.isNotEmpty() }
         if (lines.size < MAX_LINES) lines.addAll(frameLines)
         val number = CardNumber.find(frameLines)
-        if (number != null) {
+        if (number != null && confirmed == null) {
           val count = (seen[number] ?: 0) + 1
           seen[number] = count
-          if (count >= 2) finishWith(number, null)
+          if (count >= 2) {
+            // Number confirmed. Keep reading a little longer: the bank's name is usually in large,
+            // stylised lettering that takes text recognition more frames to pick up.
+            confirmed = number
+            hint.text = "Got the number. Hold still a moment…"
+            Handler(Looper.getMainLooper()).postDelayed({ finishWith(number, null) }, LINGER_MS)
+          }
         }
       }
       .addOnCompleteListener { image.close() }
@@ -180,7 +187,7 @@ class CardScanActivity : ComponentActivity() {
   /** Done: the number read most often (if any) and every line seen. */
   private fun finishDone() {
     if (done) return
-    val best = seen.maxByOrNull { it.value }?.key
+    val best = confirmed ?: seen.maxByOrNull { it.value }?.key
     finishWith(best, null, ok = true)
   }
 
@@ -243,6 +250,7 @@ class CardScanActivity : ComponentActivity() {
     const val ERROR_PERMISSION = "permission"
     const val ERROR_CAMERA = "camera"
     const val ERROR_UNAVAILABLE = "unavailable"
-    private const val MAX_LINES = 200
+    private const val MAX_LINES = 400
+    private const val LINGER_MS = 1200L
   }
 }

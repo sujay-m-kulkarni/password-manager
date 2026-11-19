@@ -48,7 +48,7 @@ const login = (over: Partial<EntryInput> = {}): EntryInput => ({
   favorite: false,
   ...over,
 });
-const card = (over: Partial<Card> = {}): Card => ({ kind: 'debit', number: VISA, expiry: '08/29', name: 'SUJAY K', pin: '4829', ...over });
+const card = (over: Partial<Card> = {}): Card => ({ kind: 'debit', number: VISA, expiry: '08/29', name: 'SUJAY K', pin: '4829', bank: '', ...over });
 
 describe('upgrading an existing vault', () => {
   it('turns folders into types and keeps everything else', () => {
@@ -163,6 +163,17 @@ describe('cards in a Banking entry', () => {
     const id2 = saveEntry(db, login({ cards: [card()] }));
     deleteEntry(db, id2);
     expect(listCards(db, id2)).toEqual([]);
+  });
+});
+
+describe('a card\'s bank (1.8.3)', () => {
+  it('is saved, listed, and carried through a backup', async () => {
+    const { db, dek } = await createVault(PW);
+    const id = saveEntry(db, login({ cards: [card({ bank: ' SBI Card ' }), card({ kind: 'credit', number: RUPAY })] }));
+    expect(listCards(db, id).map(c => c.bank)).toEqual(['SBI Card', '']);
+    const opened = (await openBackup(parseBackup(createBackup(db, dek).text), PW))!;
+    restoreInto(db, opened.data);
+    expect(listCards(db, listEntries(db, '', null)[0].id).map(c => c.bank)).toEqual(['SBI Card', '']);
   });
 });
 
