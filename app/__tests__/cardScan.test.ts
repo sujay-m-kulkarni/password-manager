@@ -8,6 +8,7 @@ import {
   findKind,
   findBank,
   findName,
+  maskedLines,
   mergeScan,
   missingFromScan,
   readCard,
@@ -64,6 +65,7 @@ test('a full reading', () => {
     name: 'SUJAY M KULKARNI',
     kind: 'debit',
     bank: 'HDFC Bank',
+    seen: expect.arrayContaining(['HDFC BANK', '•••• 1111']),
   });
 });
 
@@ -86,7 +88,7 @@ const BACK = ['4111 1111 1111 1111', 'VALID THRU', '04/30', 'CVV', '123', 'AUTHO
 
 test('two sides: the second fills only what is still missing', () => {
   const front = readCard({ number: null, lines: FRONT }); // Done on a side without the number
-  expect(front).toEqual({ number: '', expiry: '', name: 'SUJAY KULKARNI', kind: 'debit', bank: 'ICICI Bank' });
+  expect(front).toMatchObject({ number: '', expiry: '', name: 'SUJAY KULKARNI', kind: 'debit', bank: 'ICICI Bank' });
   expect(missingFromScan(front)).toEqual(['card number', 'expiry']);
 
   const back = readCard({ number: '4111111111111111', lines: BACK });
@@ -140,4 +142,21 @@ test('does the entry title already name the bank?', () => {
   expect(titleMatchesBank('SBI', 'State Bank of India')).toBe(true);
   expect(titleMatchesBank('Kotak 811', 'Kotak Mahindra Bank')).toBe(true);
   expect(titleMatchesBank('HDFC Bank', 'State Bank of India')).toBe(false);
+});
+
+test('what the scanner read is shown with long numbers masked', () => {
+  expect(maskedLines(['4111 1111 1111 1111', 'VALID THRU 01/28', 'Customer care 1800 1080', 'A/C 50100123456789', 'CVV 123'])).toEqual([
+    '•••• 1111',
+    'VALID THRU 01/28',
+    'Customer care •••• 1080',
+    'A/C •••• 6789',
+    'CVV •••',
+  ]);
+  expect(maskedLines(['123', 'VALID UPTO 09/2029'])).toEqual(['•••', 'VALID UPTO 09/2029']);
+});
+
+test('scanning the other side fills a missing bank but keeps one already there', () => {
+  const back = readCard({ number: '4111111111111111', lines: ['HDFC BANK', '4111 1111 1111 1111'] });
+  expect(mergeScan({ number: '', expiry: '', name: '', bank: '' }, back).bank).toBe('HDFC Bank');
+  expect(mergeScan({ number: '', expiry: '', name: '', bank: 'My edit' }, back).bank).toBe('My edit');
 });

@@ -13,7 +13,12 @@ import { NativeModules } from 'react-native';
 import { cleanCardNumber, type Card, type CardKind } from './cards';
 
 export type ScanResult = { number?: string | null; lines: string[] };
-export type ScannedCard = Pick<Card, 'number' | 'expiry' | 'name'> & { kind: CardKind | null; bank: string | null };
+export type ScannedCard = Pick<Card, 'number' | 'expiry' | 'name'> & {
+  kind: CardKind | null;
+  bank: string | null;
+  /** What the camera read, long numbers masked: shown on request, to see why something was missed. */
+  seen: string[];
+};
 
 type Native = { scan(prompt: string | null): Promise<ScanResult | null> };
 const native = () => NativeModules.CardScan as Native | undefined;
@@ -40,12 +45,16 @@ export function missingFromScan(c: Pick<ScannedCard, 'number' | 'expiry' | 'name
 }
 
 /** Second side: fills only what is still empty, so nothing the person already checked changes. */
-export function mergeScan<T extends Pick<ScannedCard, 'number' | 'expiry' | 'name'>>(have: T, other: ScannedCard): T {
+export function mergeScan<T extends Pick<ScannedCard, 'number' | 'expiry' | 'name'> & { bank?: string | null }>(
+  have: T,
+  other: ScannedCard,
+): T {
   return {
     ...have,
     number: have.number || other.number,
     expiry: have.expiry || other.expiry,
     name: have.name || other.name,
+    bank: (have.bank || other.bank || '') as T['bank'],
   };
 }
 
@@ -170,5 +179,18 @@ export function readCard(r: ScanResult): ScannedCard {
     name: findName(lines),
     kind: findKind(lines),
     bank: findBank(lines),
+    seen: maskedLines(lines),
   };
+}
+
+/**
+ * The lines as read, safe to show: a run of 8+ digits becomes •••• and its last 4 digits, and a
+ * standalone 3–4 digit number (a CVV, a PIN) becomes •••. Dates like 01/28 stay readable.
+ */
+export function maskedLines(lines: string[]): string[] {
+  return lines.map(l =>
+    l.replace(/\d(?:[\d \-]*\d){7,}|(?<![\d/])\d{3,4}(?![\d/])/g, run =>
+      run.length <= 4 ? '•••' : `•••• ${run.replace(/\D/g, '').slice(-4)}`,
+    ),
+  );
 }

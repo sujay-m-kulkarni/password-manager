@@ -216,7 +216,7 @@ function CardView({ card, onCopy }: { card: Card; onCopy: (text: string) => void
   return (
     <View style={s.cardBox}>
       <View style={s.cardHead}>
-        <Text style={s.cardTitle}>{network ? `${kind} · ${network}` : kind}</Text>
+        <Text style={s.cardTitle}>{[card.bank, kind, network].filter(Boolean).join(' · ')}</Text>
         <SmallBtn
           label={shown ? `Hide ${kind} details` : `Show ${kind} details`}
           text={shown ? 'Hide' : 'Show'}

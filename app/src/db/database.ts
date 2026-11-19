@@ -130,6 +130,8 @@ const MIGRATIONS: string[][] = [
   // v4 (1.7.0): custom fields. Search looks in field_text: the values of fields that are not Hidden
   // (1.5/1.6 fields were never hidden, so their stored text serves as a start).
   [`ALTER TABLE entries ADD COLUMN field_text TEXT`, `UPDATE entries SET field_text = fields`],
+  // v5 (1.8.3): each card names its bank or issuer (read by a scan, or typed).
+  [`ALTER TABLE cards ADD COLUMN bank TEXT`],
 ];
 
 function migrate(db: DB) {
@@ -345,11 +347,23 @@ export function pinProblem(p: EntryPin): string | null {
 const orNull = (s: string) => (s.trim() ? s.trim() : null);
 
 export function listCards(db: DB, entryId: number): Card[] {
-  return rows<{ id: number; kind: CardKind; number: string; expiry: string | null; name: string | null; pin: string | null }>(
-    db,
-    'SELECT id, kind, number, expiry, name, pin FROM cards WHERE entry_id = ? ORDER BY id',
-    [entryId],
-  ).map(r => ({ id: r.id, kind: r.kind, number: r.number, expiry: r.expiry ?? '', name: r.name ?? '', pin: r.pin ?? '' }));
+  return rows<{
+    id: number;
+    kind: CardKind;
+    number: string;
+    expiry: string | null;
+    name: string | null;
+    pin: string | null;
+    bank: string | null;
+  }>(db, 'SELECT id, kind, number, expiry, name, pin, bank FROM cards WHERE entry_id = ? ORDER BY id', [entryId]).map(r => ({
+    id: r.id,
+    kind: r.kind,
+    number: r.number,
+    expiry: r.expiry ?? '',
+    name: r.name ?? '',
+    pin: r.pin ?? '',
+    bank: r.bank ?? '',
+  }));
 }
 
 /**
@@ -405,8 +419,8 @@ export function saveEntry(db: DB, input: EntryInput, id?: number): number {
       db.executeSync('DELETE FROM cards WHERE entry_id = ?', [entryId]);
       for (const c of cards) {
         db.executeSync(
-          'INSERT INTO cards (entry_id, kind, number, expiry, name, pin, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-          [entryId, c.kind, digits(c.number), orNull(c.expiry), orNull(c.name), orNull(c.pin), now, now],
+          'INSERT INTO cards (entry_id, kind, number, expiry, name, pin, bank, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+          [entryId, c.kind, digits(c.number), orNull(c.expiry), orNull(c.name), orNull(c.pin), orNull(c.bank ?? ''), now, now],
         );
       }
     }

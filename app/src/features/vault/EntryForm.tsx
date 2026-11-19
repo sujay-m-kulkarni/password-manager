@@ -449,6 +449,9 @@ function CardsEditor({
   const withAutoLockPaused = useSession(st => st.withAutoLockPaused);
   const [scanning, setScanning] = useState(false);
   const [scanNote, setScanNote] = useState<{ text: string; bad?: boolean } | null>(null);
+  // What the camera read on the last scan(s), masked; shown on request to see why something was missed.
+  const [seen, setSeen] = useState<string[]>([]);
+  const [showSeen, setShowSeen] = useState(false);
   // The card just scanned, while it still lacks something the other side may show.
   const [otherSide, setOtherSide] = useState<number | null>(null);
 
@@ -471,10 +474,12 @@ function CardsEditor({
     try {
       const card = await withAutoLockPaused(() => scanCard());
       if (card) {
+        setSeen(card.seen);
+        setShowSeen(false);
         const index = cards.length;
         onChange(prev => [
           ...prev,
-          { ...emptyCard(card.kind ?? 'debit'), number: card.number, expiry: card.expiry, name: card.name },
+          { ...emptyCard(card.kind ?? 'debit'), number: card.number, expiry: card.expiry, name: card.name, bank: card.bank ?? '' },
         ]);
         const missing = missingFromScan(card);
         setOtherSide(missing.length ? index : null);
@@ -495,6 +500,7 @@ function CardsEditor({
     try {
       const side = await withAutoLockPaused(() => scanCard(OTHER_SIDE_PROMPT));
       if (side) {
+        setSeen(prev => [...prev, '— other side —', ...side.seen]);
         const bankNote = side.bank ? onBank?.(side.bank) : null;
         const merged = mergeScan(cards[otherSide], side);
         const kind = cards[otherSide].kind;
@@ -532,6 +538,20 @@ function CardsEditor({
         />
       ))}
       {scanNote && <Text style={[s.hint, scanNote.bad && s.hintBad]}>{scanNote.text}</Text>}
+      {seen.length > 0 && (
+        <Pressable accessibilityRole="button" onPress={() => setShowSeen(v => !v)}>
+          <Text style={s.link}>{showSeen ? 'Hide what the scanner read' : 'What the scanner read'}</Text>
+        </Pressable>
+      )}
+      {showSeen && (
+        <View style={s.seenBox}>
+          {seen.map((l, i) => (
+            <Text key={i} style={s.seenLine}>
+              {l}
+            </Text>
+          ))}
+        </View>
+      )}
       {otherSide != null && cards[otherSide] && (
         <Button title="Scan the other side" small onPress={scanOtherSide} loading={scanning} style={{ alignSelf: 'flex-start' }} />
       )}
@@ -613,6 +633,15 @@ function CardEditor({
         importantForAutofill="no"
         autoCorrect={false}
       />
+      <Field
+        label="Bank / issuer"
+        value={card.bank}
+        onChangeText={t => onChange({ bank: t })}
+        placeholder="e.g. HDFC Bank, SBI Card"
+        autoCapitalize="words"
+        maxLength={40}
+        importantForAutofill="no"
+      />
       <View style={s.pwTools}>
         <Text style={[s.hint, (problem || luhnWarn) && s.hintBad]}>
           {problem ?? (luhnWarn ? 'This number doesn’t look right. Check for a typo.' : ' ')}
@@ -661,6 +690,9 @@ const s = StyleSheet.create({
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chip: { minHeight: 40, paddingHorizontal: 14, borderRadius: 20, justifyContent: 'center' },
   chipText: { fontFamily: fonts.bold, fontSize: 14 },
+  link: { fontFamily: fonts.bold, fontSize: 14, color: colors.primary, paddingVertical: 6 },
+  seenBox: { backgroundColor: colors.deep, borderRadius: 14, padding: 12, gap: 2 },
+  seenLine: { fontFamily: 'monospace', fontSize: 12, color: colors.inkSoft },
   fieldRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 6 },
   removeBtn: { width: 44, height: 52, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
   removeText: { fontFamily: fonts.bold, fontSize: 22, color: colors.muted },
