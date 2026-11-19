@@ -3,6 +3,12 @@ export type Release = { version: string; points: string[] };
 
 export const CHANGELOG: Release[] = [
   {
+    "version": "1.8.4",
+    "points": [
+      "The scanner takes its time and closes by itself when it's done: after finding the number (or, on a side without it, the expiry) it keeps reading until nothing new turns up, so the bank's name and the rest of the card are read too. No need to tap Done; it's still there if you want to stop early."
+    ]
+  },
+  {
     "version": "1.8.3",
     "points": [
       "Fixed: the bank's name read from a scanned card was only used as an untitled entry's title, so it usually seemed lost. Each card now has its own Bank / issuer field, which a scan fills in, and the bank shows in the card's title (e.g. \"HDFC Bank · Debit · Visa\").",

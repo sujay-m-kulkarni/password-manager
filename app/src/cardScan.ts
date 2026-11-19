@@ -26,8 +26,8 @@ const native = () => NativeModules.CardScan as Native | undefined;
 /** False on builds without the scanner (tests, laptop builds before 1.8). */
 export const canScanCards = () => typeof native()?.scan === 'function';
 
-export const FIRST_SIDE_PROMPT = 'Hold the side with the card number inside the frame. No number on this side? Tap Done.';
-export const OTHER_SIDE_PROMPT = 'Now the other side. Tap Done when the expiry and name are in the frame.';
+export const FIRST_SIDE_PROMPT = 'Hold the side with the card number inside the frame and keep it still. It closes by itself when done.';
+export const OTHER_SIDE_PROMPT = 'Now the other side. Keep it still: it closes by itself once the expiry is read.';
 
 /** Opens the camera. Resolves to what that side shows (number may be empty), or null when cancelled. */
 export async function scanCard(prompt: string = FIRST_SIDE_PROMPT): Promise<ScannedCard | null> {

@@ -13,6 +13,7 @@ import android.graphics.RectF
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import android.util.Size
 import android.util.TypedValue
 import android.view.Gravity
@@ -49,9 +50,12 @@ import java.util.concurrent.Executors
  * the window is screenshot-blocked like the rest of Vault.
  *
  * Either side of a card can be scanned (many cards print the number, expiry and name on the
- * back). Finishes on its own once the same Luhn-valid card number has been read in two frames, or
- * when Done is tapped (a side without the number). Returns the number, if one was read, and the
- * text lines seen; the app picks out expiry and name in TypeScript and never keeps a CVV.
+ * back). It takes its time and closes itself when done (1.8.3): once the same Luhn-valid number
+ * has been read in two frames, or (a side without the number) once an expiry has been read, it
+ * keeps reading until no new text has turned up for a while, so the bank's name and the rest of
+ * the card are read too. Done still closes it at any time. Returns the number, if one was read,
+ * and the text lines seen; the app picks out expiry, name and bank in TypeScript and never keeps
+ * a CVV.
  */
 class CardScanActivity : ComponentActivity() {
   private val executor: ExecutorService = Executors.newSingleThreadExecutor()
@@ -63,6 +67,11 @@ class CardScanActivity : ComponentActivity() {
   private lateinit var hint: TextView
   @Volatile private var done = false
   @Volatile private var confirmed: String? = null
+  /** When reading started to wind down (number confirmed or expiry seen), and when text last grew. */
+  private var settlingSince = 0L
+  private var lastNewText = 0L
+  /** A long digit run that wasn't a valid number yet: the number is on this side, keep trying. */
+  private var numberLikely = false
 
   private val askCamera = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
     if (granted) startCamera() else finishWith(null, ERROR_PERMISSION)
@@ -103,7 +112,7 @@ class CardScanActivity : ComponentActivity() {
       text = "Cancel"
       setOnClickListener { finishWith(null, null) }
     })
-    // For a side without the card number (expiry and name only): return what has been read.
+    // Close now with what has been read (the scanner also closes itself when it's done).
     buttons.addView(Button(this).apply {
       text = "Done"
       setOnClickListener { finishDone() }
@@ -116,7 +125,7 @@ class CardScanActivity : ComponentActivity() {
 
     // After a while without a reading, suggest the way out.
     Handler(Looper.getMainLooper()).postDelayed({
-      if (!done && !isFinishing) hint.text = "Can't read it? Try more light, hold it flat, or cancel and type the details."
+      if (!done && !isFinishing && settlingSince == 0L) hint.text = "Can't read it? Try more light, hold it flat, or cancel and type the details."
     }, 15000)
 
     if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
@@ -167,21 +176,43 @@ class CardScanActivity : ComponentActivity() {
     rec.process(input)
       .addOnSuccessListener { text ->
         val frameLines = text.textBlocks.flatMap { b -> b.lines.map { it.text.trim() } }.filter { it.isNotEmpty() }
-        if (lines.size < MAX_LINES) lines.addAll(frameLines)
+        val now = SystemClock.elapsedRealtime()
+        var grew = false
+        for (l in frameLines) {
+          if (lines.size >= MAX_LINES) break
+          if (lines.add(l)) grew = true
+        }
+        if (grew) lastNewText = now
+        if (frameLines.any { LONG_DIGITS.containsMatchIn(it) }) numberLikely = true
+
         val number = CardNumber.find(frameLines)
         if (number != null && confirmed == null) {
           val count = (seen[number] ?: 0) + 1
           seen[number] = count
           if (count >= 2) {
-            // Number confirmed. Keep reading a little longer: the bank's name is usually in large,
-            // stylised lettering that takes text recognition more frames to pick up.
             confirmed = number
-            hint.text = "Got the number. Hold still a moment…"
-            Handler(Looper.getMainLooper()).postDelayed({ finishWith(number, null) }, LINGER_MS)
+            startSettling(now, "Got the number. Hold still while the rest of the card is read…")
+          }
+        }
+        // A side without the number: once the expiry is read, wind down the same way.
+        if (confirmed == null && settlingSince == 0L && !numberLikely && frameLines.any { EXPIRY.containsMatchIn(it) }) {
+          startSettling(now, "Reading the rest of this side… hold still")
+        }
+        if (settlingSince > 0L) {
+          val settled = now - settlingSince >= MIN_SETTLE_MS && now - lastNewText >= QUIET_MS
+          if (settled || now - settlingSince >= MAX_SETTLE_MS) {
+            val n = confirmed
+            if (n != null) finishWith(n, null) else if (!numberLikely) finishWith(null, null, ok = true)
           }
         }
       }
       .addOnCompleteListener { image.close() }
+  }
+
+  private fun startSettling(now: Long, message: String) {
+    settlingSince = now
+    lastNewText = now
+    hint.text = message
   }
 
   /** Done: the number read most often (if any) and every line seen. */
@@ -251,6 +282,11 @@ class CardScanActivity : ComponentActivity() {
     const val ERROR_CAMERA = "camera"
     const val ERROR_UNAVAILABLE = "unavailable"
     private const val MAX_LINES = 400
-    private const val LINGER_MS = 1200L
+    /** Wind-down: at least this long, until no new text for QUIET_MS, and never longer than MAX. */
+    private const val MIN_SETTLE_MS = 2000L
+    private const val QUIET_MS = 1500L
+    private const val MAX_SETTLE_MS = 6000L
+    private val LONG_DIGITS = Regex("\\d(?:[\\d ]*\\d){11,}")
+    private val EXPIRY = Regex("\\b(0[1-9]|1[0-2])\\s?[/-]\\s?(\\d{2}|\\d{4})\\b")
   }
 }
