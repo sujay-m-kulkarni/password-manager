@@ -25,6 +25,11 @@ x86 copies for emulators are left out; the phone installs only its own copy, abo
 With no version tag yet, it counts on from `app/package.json` (0.1.0). The rules are in `app/scripts/next-version.mjs`.
 Only the newest 10 fix releases are kept; major and minor releases are kept for good.
 
+**Merges queue, they don't cancel.** A new push to a PR branch cancels that branch's running build, but builds on
+`main` wait for the one before to finish (each one publishes a release). Before 1.9.0 a second merge cancelled the first
+merge's release, so its version number went to the next merge instead. GitHub keeps one waiting build per branch: merge
+PRs one at a time, a few minutes apart, and if a release is ever missing, run the workflow on `main` with **release** ticked.
+
 **Version codes.** Pipeline builds use 1,000,000 plus the run number, which only ever goes up, so each merge installs
 over the last. Builds made on a laptop use the plain version (0.1.0 is 100), always below any pipeline build.
 

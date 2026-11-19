@@ -19,6 +19,19 @@ import { useDb, useSession } from '../../store/session';
 import { colors, fonts } from '../../theme';
 import { useAppVersion } from '../../utils/appVersion';
 import { useExportBackup } from './useExportBackup';
+import {
+  TIMES,
+  backUpNow as runDailyBackupNow,
+  canBackUpDaily,
+  dailyStatus,
+  dailyTime,
+  offPhoneAt,
+  offPhoneState,
+  saveOffPhoneCopy,
+  setDailyTime,
+  timeLabel,
+  type DailyStatus,
+} from '../../security/dailyBackup';
 import { Icon } from '../../components/Icon';
 
 const AUTO_LOCK = [
@@ -54,6 +67,40 @@ export function SettingsScreen() {
   const [autoBusy, setAutoBusy] = useState(false);
   const [tick, setTick] = useState(0); // re-reads the backup times without marking data as changed
   const refreshAuto = () => setAuto(autoBackupState(db));
+  const daily = canBackUpDaily();
+  const [status, setStatus] = useState<DailyStatus | null>(null);
+  const [off, setOff] = useState(() => offPhoneState(db));
+  const [time, setTime] = useState(() => dailyTime(db));
+  const [offBusy, setOffBusy] = useState(false);
+  const refreshDaily = async () => {
+    setOff(offPhoneState(db));
+    setStatus(await dailyStatus());
+  };
+
+  const saveOffPhone = async () => {
+    if (!dek) {
+      return;
+    }
+    setOffBusy(true);
+    try {
+      const r = await saveOffPhoneCopy(db, dek);
+      if (r.saved && r.onPhone) {
+        Alert.alert('Saved on this phone', 'A stolen or broken phone would take that copy too. Save again and choose Google Drive in the Save screen (tap ☰).');
+      }
+    } catch (e) {
+      Alert.alert('Backup not saved', e instanceof Error ? e.message : 'Something went wrong.');
+    } finally {
+      await refreshDaily();
+      setTick(t => t + 1);
+      setOffBusy(false);
+    }
+  };
+
+  const pickTime = async (t: string) => {
+    setTime(t);
+    await setDailyTime(db, t).catch(() => null);
+    await refreshDaily();
+  };
 
   const chooseFolder = async () => {
     if (!dek) {
@@ -76,7 +123,15 @@ export function SettingsScreen() {
       return;
     }
     setAutoBusy(true);
-    await runAutoBackup(db, dek);
+    if (daily) {
+      try {
+        setStatus(await runDailyBackupNow(db, dek));
+      } catch (e) {
+        Alert.alert('Backup not made', e instanceof Error ? e.message : 'Something went wrong.');
+      }
+    } else {
+      await runAutoBackup(db, dek);
+    }
     refreshAuto();
     setTick(t => t + 1);
     setAutoBusy(false);
@@ -101,12 +156,19 @@ export function SettingsScreen() {
       setRecovery(hasRecoveryKey());
       setAuto(autoBackupState(db));
       setCost(unlockCost());
+      refreshDaily();
     });
+    refreshDaily();
     return unsub;
-  }, [navigation, db]);
+  }, [navigation, db]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const last = useMemo(() => lastBackupAt(db), [db, dataVersion, tick]); // eslint-disable-line react-hooks/exhaustive-deps
   const due = useMemo(() => backupDue(db), [db, dataVersion, tick]); // eslint-disable-line react-hooks/exhaustive-deps
+  const offAt = useMemo(() => offPhoneAt(db, status), [db, status, off, tick]); // eslint-disable-line react-hooks/exhaustive-deps
+  const offStale = useMemo(() => {
+    const r = db.executeSync('SELECT max(updated_at) AS changed FROM entries').rows[0] as { changed: number | null } | undefined;
+    return r?.changed != null && (offAt == null || Number(r.changed) > offAt);
+  }, [db, offAt, dataVersion]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const setBiometric = async (on: boolean, withPhoneLock = phoneLock) => {
     if (!dek) {
@@ -137,17 +199,28 @@ export function SettingsScreen() {
       <ScrollView contentContainerStyle={s.content}>
         <Text style={s.title}>Settings</Text>
 
-        <View style={[s.backupCard, due || last == null ? s.backupDue : s.backupOk]}>
-          <Text style={s.backupTitle}>{last == null ? 'No backup yet' : `Last backup: ${ago(last)}`}</Text>
-          <Text style={s.backupBody}>
-            {last == null
-              ? 'Export an encrypted copy and keep it off this phone. Without it, a lost or reset phone means lost passwords.'
-              : due
-                ? 'You have changes since then. Export a fresh copy.'
-                : 'Your backup is up to date. Keep the file off this phone.'}
-          </Text>
-          <Button title="Export backup" variant="dark" small onPress={exportNow} loading={exporting} style={{ alignSelf: 'flex-start' }} />
-        </View>
+        {daily ? (
+          <DriveCard
+            off={off}
+            at={offAt}
+            time={timeLabel(time)}
+            stale={offStale}
+            busy={offBusy}
+            onSave={saveOffPhone}
+          />
+        ) : (
+          <View style={[s.backupCard, due || last == null ? s.backupDue : s.backupOk]}>
+            <Text style={s.backupTitle}>{last == null ? 'No backup yet' : `Last backup: ${ago(last)}`}</Text>
+            <Text style={s.backupBody}>
+              {last == null
+                ? 'Export an encrypted copy and keep it off this phone. Without it, a lost or reset phone means lost passwords.'
+                : due
+                  ? 'You have changes since then. Export a fresh copy.'
+                  : 'Your backup is up to date. Keep the file off this phone.'}
+            </Text>
+            <Button title="Export backup" variant="dark" small onPress={exportNow} loading={exporting} style={{ alignSelf: 'flex-start' }} />
+          </View>
+        )}
 
         <SectionLabel>Unlock</SectionLabel>
         <View style={s.card}>
@@ -215,33 +288,59 @@ export function SettingsScreen() {
         {!recovery && <Banner tone="warn" text="No recovery key yet. Without one, a forgotten master password can't be undone." />}
 
         <SectionLabel>Backup</SectionLabel>
-        <View style={s.card}>
-          <Text style={s.rowLabel}>Automatic backup</Text>
-          {auto ? (
-            <>
-              <Text style={s.hint}>
-                Saves an encrypted backup to “{auto.folder}” whenever your entries change, keeping the newest {KEEP}.
-                {'\n'}
-                {auto.lastAt ? `Last saved ${ago(auto.lastAt)} at ${new Date(auto.lastAt).toLocaleTimeString()}.` : 'Not saved yet.'}
-              </Text>
-              {auto.error && <Banner text={auto.error} />}
-              <View style={s.autoActions}>
-                <Button title="Back up now" small onPress={backUpNow} loading={autoBusy} />
-                <Button title="Change folder" small variant="soft" onPress={chooseFolder} disabled={autoBusy} />
-                <Button title="Turn off" small variant="ghost" onPress={turnOff} disabled={autoBusy} />
-              </View>
-            </>
-          ) : (
-            <>
-              <Text style={s.hint}>
-                Choose a folder once (for example Downloads, an SD card, or a Google Drive folder). Vault then saves an
-                encrypted backup there by itself whenever your entries change. Those files stay even if Vault is
-                uninstalled.
-              </Text>
-              <Button title="Choose backup folder" small onPress={chooseFolder} loading={autoBusy} style={{ alignSelf: 'flex-start' }} />
-            </>
-          )}
-        </View>
+        {daily ? (
+          <View style={s.card}>
+            <Text style={s.rowLabel}>Daily backup</Text>
+            <Segmented
+              options={TIMES.map((t, i) => ({ sec: i, label: t.label }))}
+              value={Math.max(0, TIMES.findIndex(t => t.value === time))}
+              onChange={i => pickTime(TIMES[i].value)}
+            />
+            <Text style={s.hint}>
+              Every day at {timeLabel(time)}, even while Vault is closed (Android may run it a few minutes late).
+              {'\n'}On this phone: {auto ? `“${auto.folder}”, last 7 days kept.` : 'no folder chosen.'}
+              {'\n'}Off the phone: {off ? `“${off.name}” on ${off.place}${off.persisted ? ', updated daily.' : ', saved by you (Vault reminds you).'}` : 'not saved yet.'}
+              {'\n'}
+              {status?.lastRunAt ? `Last daily backup: ${ago(status.lastRunAt)} at ${new Date(status.lastRunAt).toLocaleTimeString()}.` : 'No daily backup yet.'}
+              {status?.nextAt ? ` Next: ${new Date(status.nextAt).toLocaleString()}.` : ''}
+            </Text>
+            {status?.error && <Banner text={status.error} />}
+            {auto?.error && <Banner text={auto.error} />}
+            <View style={s.autoActions}>
+              <Button title="Back up now" small onPress={backUpNow} loading={autoBusy} />
+              <Button title="Change folder" small variant="soft" onPress={chooseFolder} disabled={autoBusy} />
+              <Button title="Save to Drive again" small variant="soft" onPress={saveOffPhone} disabled={offBusy} />
+            </View>
+          </View>
+        ) : (
+          <View style={s.card}>
+            <Text style={s.rowLabel}>Automatic backup</Text>
+            {auto ? (
+              <>
+                <Text style={s.hint}>
+                  Saves an encrypted backup to “{auto.folder}” whenever your entries change, keeping the newest {KEEP}.
+                  {'\n'}
+                  {auto.lastAt ? `Last saved ${ago(auto.lastAt)} at ${new Date(auto.lastAt).toLocaleTimeString()}.` : 'Not saved yet.'}
+                </Text>
+                {auto.error && <Banner text={auto.error} />}
+                <View style={s.autoActions}>
+                  <Button title="Back up now" small onPress={backUpNow} loading={autoBusy} />
+                  <Button title="Change folder" small variant="soft" onPress={chooseFolder} disabled={autoBusy} />
+                  <Button title="Turn off" small variant="ghost" onPress={turnOff} disabled={autoBusy} />
+                </View>
+              </>
+            ) : (
+              <>
+                <Text style={s.hint}>
+                  Choose a folder once (for example Downloads, an SD card, or a Google Drive folder). Vault then saves an
+                  encrypted backup there by itself whenever your entries change. Those files stay even if Vault is
+                  uninstalled.
+                </Text>
+                <Button title="Choose backup folder" small onPress={chooseFolder} loading={autoBusy} style={{ alignSelf: 'flex-start' }} />
+              </>
+            )}
+          </View>
+        )}
         <View style={s.list}>
           <NavRow label="Export encrypted backup" onPress={exportNow} />
           <NavRow label="Restore from a backup" onPress={() => navigation.navigate('Restore')} />
@@ -259,6 +358,43 @@ export function SettingsScreen() {
         </Text>
       </ScrollView>
     </SafeAreaView>
+  );
+}
+
+function DriveCard({
+  off,
+  at,
+  time,
+  stale,
+  busy,
+  onSave,
+}: {
+  off: ReturnType<typeof offPhoneState>;
+  at: number | null;
+  time: string;
+  stale: boolean;
+  busy: boolean;
+  onSave: () => void;
+}) {
+  const ok = off != null && !stale;
+  return (
+    <View style={[s.backupCard, ok ? s.backupOk : s.backupDue]}>
+      <Text style={s.backupTitle}>
+        {off == null ? 'No copy off this phone' : `Copy on ${off.place}: ${at ? ago(at) : 'not saved yet'}`}
+      </Text>
+      <Text style={s.backupBody}>
+        {off == null
+          ? 'Save an encrypted copy to Google Drive. It is what gets your vault back if this phone is lost or stolen.'
+          : off.persisted
+            ? `Vault updates it every day at ${time}.${stale ? ' Your latest changes go in at the next one.' : ''}`
+            : stale
+              ? 'You have changes since then. Save a fresh copy.'
+              : 'Up to date. Save a fresh copy after you change entries.'}
+      </Text>
+      {(off == null || !off.persisted) && (
+        <Button title="Save to Google Drive" variant="dark" small onPress={onSave} loading={busy} style={{ alignSelf: 'flex-start' }} />
+      )}
+    </View>
   );
 }
 

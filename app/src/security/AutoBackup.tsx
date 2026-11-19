@@ -1,11 +1,16 @@
 /**
- * Runs the automatic backup while the vault is unlocked: right after unlocking if entries changed
- * since the last one, and shortly after every change (add, edit, delete, folders, restore).
- * Renders nothing.
+ * Keeps backups up to date while the vault is unlocked. Renders nothing.
+ *
+ * 1.9.0, daily backup: on unlocking, the daily alarm is (re)set from the settings, and after every
+ * change the encrypted snapshot the alarm copies is refreshed. The folder and the off-phone file are
+ * written by the alarm at the chosen time (or by Back up now), not on every change.
+ *
+ * Builds without the daily backup keep the 1.4 behaviour: a backup in the folder after each change.
  */
 import { useEffect, useRef } from 'react';
 import { useSession } from '../store/session';
 import { autoBackupState, changedSinceAutoBackup, runAutoBackup } from './autoBackup';
+import { canBackUpDaily, configureDaily, prepareSnapshot } from './dailyBackup';
 
 const DELAY_MS = 600; // a burst of changes (e.g. a restore) makes one backup
 
@@ -17,12 +22,16 @@ export function AutoBackup() {
   const running = useRef(false);
 
   useEffect(() => {
-    if (!db || !dek || !autoBackupState(db)) {
+    if (!db || !dek) {
+      return;
+    }
+    const daily = canBackUpDaily();
+    if (!daily && !autoBackupState(db)) {
       return;
     }
     const isFirst = first.current;
     first.current = false;
-    if (isFirst && !changedSinceAutoBackup(db)) {
+    if (!daily && isFirst && !changedSinceAutoBackup(db)) {
       return;
     }
     const t = setTimeout(async () => {
@@ -33,7 +42,15 @@ export function AutoBackup() {
       try {
         // Still unlocked with the same vault?
         const st = useSession.getState();
-        if (st.db === db && st.dek) {
+        if (st.db !== db || !st.dek) {
+          return;
+        }
+        if (daily) {
+          await prepareSnapshot(db, st.dek);
+          if (isFirst) {
+            await configureDaily(db).catch(() => null);
+          }
+        } else {
           await runAutoBackup(db, st.dek);
         }
       } finally {

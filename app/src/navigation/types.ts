@@ -19,4 +19,5 @@ export type RootStackParamList = {
   About: undefined;
   EntryTypes: undefined;
   TypeFields: { type: EntryType };
+  BackupSetup: { mode: 'setup' | 'blocked' } | undefined;
 };

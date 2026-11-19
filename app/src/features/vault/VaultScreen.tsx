@@ -15,6 +15,7 @@ import { ENTRY_TYPES, typeInfo, type EntryType } from '../../entryTypes';
 import { pingActivity } from '../../security/AutoLock';
 import { backupDue } from '../../security/backup';
 import { useExportBackup } from '../settings/useExportBackup';
+import { canBackUpDaily, currentGate, saveOffPhoneCopy } from '../../security/dailyBackup';
 import { copyWithAutoClear } from '../../security/clipboard';
 import { useDb, useSession } from '../../store/session';
 import { colors, folderColor, fonts } from '../../theme';
@@ -40,11 +41,46 @@ export function VaultScreen() {
   );
   const browsing = !search.trim() && type == null && !pinsOnly;
   const favorites = browsing ? items.filter(i => i.favorite) : [];
-  const remind = useMemo(() => backupDue(db), [db, dataVersion]); // eslint-disable-line react-hooks/exhaustive-deps
+  const daily = canBackUpDaily();
+  const oldRemind = useMemo(() => !daily && backupDue(db), [db, dataVersion]); // eslint-disable-line react-hooks/exhaustive-deps
+  const [driveRemind, setDriveRemind] = useState(false);
+  useEffect(() => {
+    let live = true;
+    if (daily) {
+      currentGate(db)
+        .then(g => live && setDriveRemind(g === 'remind'))
+        .catch(() => null);
+    }
+    return () => {
+      live = false;
+    };
+  }, [db, dataVersion, daily]);
+  const remind = daily ? driveRemind : oldRemind;
   useEffect(() => {
     step(`vault list shown: ${total} entries, ${favorites.length} favourites`);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
-  const { exportNow, busy: exporting } = useExportBackup();
+  const { exportNow: exportFile, busy: exportingFile } = useExportBackup();
+  const dek = useSession(st => st.dek);
+  const touchData = useSession(st => st.touchData);
+  const [savingDrive, setSavingDrive] = useState(false);
+  const exporting = daily ? savingDrive : exportingFile;
+  const exportNow = async () => {
+    if (!daily) {
+      return exportFile();
+    }
+    if (!dek) {
+      return;
+    }
+    setSavingDrive(true);
+    try {
+      await saveOffPhoneCopy(db, dek);
+    } catch {
+      // the Settings screen shows details; the reminder simply stays
+    } finally {
+      setSavingDrive(false);
+      touchData();
+    }
+  };
 
   const copy = (id: number) => {
     const secret = getQuickSecret(db, id);
@@ -57,8 +93,12 @@ export function VaultScreen() {
     <View style={{ gap: 12 }}>
       {browsing && remind && (
         <Pressable accessibilityRole="button" onPress={exportNow} disabled={exporting} style={s.remind}>
-          <Text style={s.remindText}>Back up your vault: export an encrypted copy and keep it off this phone.</Text>
-          <Text style={s.remindAction}>{exporting ? 'Saving…' : 'Export'}</Text>
+          <Text style={s.remindText}>
+            {daily
+              ? 'Your Google Drive copy is over a week behind your changes. Save a fresh one.'
+              : 'Back up your vault: export an encrypted copy and keep it off this phone.'}
+          </Text>
+          <Text style={s.remindAction}>{exporting ? 'Saving…' : daily ? 'Save' : 'Export'}</Text>
         </Pressable>
       )}
       {favorites.length > 0 && (
