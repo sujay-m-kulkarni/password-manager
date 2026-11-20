@@ -16,6 +16,7 @@ import { VaultScreen } from './src/features/vault/VaultScreen';
 import type { RootStackParamList, TabParamList } from './src/navigation/types';
 import { AutoBackup } from './src/security/AutoBackup';
 import { currentGate, type Gate } from './src/security/dailyBackup';
+import { FamilyScreen } from './src/features/family/FamilyScreen';
 import { BackupSetupScreen } from './src/features/settings/BackupSetupScreen';
 import { AutoLock } from './src/security/AutoLock';
 import { useSession } from './src/store/session';
@@ -33,7 +34,7 @@ const navTheme = {
   colors: { ...DarkTheme.colors, background: colors.bg, card: colors.surface, text: colors.ink, primary: colors.primary, border: colors.border },
 };
 
-const TAB_ICON: Record<keyof TabParamList, IconName> = { Vault: 'vault', Settings: 'settings' };
+const TAB_ICON: Record<keyof TabParamList, IconName> = { Vault: 'vault', Family: 'family', Settings: 'settings' };
 
 function Tabs() {
   return (
@@ -52,6 +53,7 @@ function Tabs() {
         ),
       })}>
       <Tab.Screen name="Vault" component={VaultScreen} />
+      <Tab.Screen name="Family" component={FamilyScreen} />
       <Tab.Screen name="Settings" component={SettingsScreen} />
     </Tab.Navigator>
   );

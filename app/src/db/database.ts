@@ -135,6 +135,19 @@ const MIGRATIONS: string[][] = [
   // v6 (1.10.0): when an entry was last opened or copied, for "Recently used". Not an edit, so it
   // never changes updated_at (which decides whether a backup is out of date).
   [`ALTER TABLE entries ADD COLUMN used_at INTEGER`],
+  // v7 (1.11.0, Family Kit): where the paper original is kept, and the nominees on an entry.
+  [
+    `ALTER TABLE entries ADD COLUMN kept_at TEXT`,
+    `CREATE TABLE nominees (
+      id         INTEGER PRIMARY KEY,
+      entry_id   INTEGER NOT NULL REFERENCES entries(id) ON DELETE CASCADE,
+      position   INTEGER NOT NULL,
+      name       TEXT NOT NULL,
+      relation   TEXT,
+      share      TEXT
+    )`,
+    `CREATE INDEX idx_nominees_entry ON nominees(entry_id)`,
+  ],
 ];
 
 function migrate(db: DB) {
@@ -186,9 +199,18 @@ export type Entry = {
   url: string | null;
   notes: string | null;
   favorite: number;
+  /** Where the paper original is kept, e.g. "Blue file, bedroom cupboard" (1.11.0). */
+  kept_at?: string | null;
   created_at: number;
   updated_at: number;
 };
+
+/**
+ * Someone who collects money or property when the owner dies (1.11.0). `share` is a percentage
+ * as typed ("50"), or empty when there is one nominee or shares aren't set.
+ */
+export type Nominee = { name: string; relation: string; share: string };
+export const NOMINEES_MAX = 10;
 
 export type EntryListItem = Pick<Entry, 'id' | 'type' | 'title' | 'username' | 'favorite' | 'folder_id'> & {
   folder_color: string | null;
@@ -206,6 +228,10 @@ export type EntryInput = {
   fields?: CustomField[];
   /** When given, replaces the entry's cards (Banking only; ignored for other types). */
   cards?: Card[];
+  /** When given, replaces the entry's nominees; empty rows are dropped. */
+  nominees?: Nominee[];
+  /** Where the paper original is kept. */
+  kept_at?: string;
   folder_id: number | null;
   title: string;
   username: string;
@@ -393,10 +419,21 @@ export function saveEntry(db: DB, input: EntryInput, id?: number): number {
       throw new Error(problem);
     }
   }
-  if (!input.password && (pins ?? (id != null ? listPins(db, id) : [])).length === 0 && (cards ?? []).length === 0) {
-    throw new Error('Add a password, a PIN or a card.');
-  }
   const custom = input.fields ?? [];
+  const nominees = input.nominees?.map(cleanNominee).filter(n => n.name || n.relation || n.share);
+  const nomineeProblem = nominees ? nomineesProblem(nominees) : null;
+  if (nomineeProblem) {
+    throw new Error(nomineeProblem);
+  }
+  // Family Kit records (a will, a property) often hold no secret at all: details are enough.
+  const hasDetails =
+    custom.some(f => f.name.trim() && f.value.trim()) ||
+    !!input.notes.trim() ||
+    !!input.kept_at?.trim() ||
+    (nominees ?? (id != null ? listNominees(db, id) : [])).length > 0;
+  if (!input.password && !hasDetails && (pins ?? (id != null ? listPins(db, id) : [])).length === 0 && (cards ?? []).length === 0) {
+    throw new Error('Add a password, a PIN, a card or some details.');
+  }
   const fieldProblem = fieldsProblem(custom);
   if (fieldProblem) {
     throw new Error(fieldProblem);
@@ -417,6 +454,18 @@ export function saveEntry(db: DB, input: EntryInput, id?: number): number {
           now,
         ]);
       }
+    }
+    if (nominees) {
+      db.executeSync('DELETE FROM nominees WHERE entry_id = ?', [entryId]);
+      nominees.forEach((n, i) =>
+        db.executeSync('INSERT INTO nominees (entry_id, position, name, relation, share) VALUES (?, ?, ?, ?, ?)', [
+          entryId,
+          i,
+          n.name,
+          orNull(n.relation),
+          orNull(n.share),
+        ]),
+      );
     }
     if (cards) {
       db.executeSync('DELETE FROM cards WHERE entry_id = ?', [entryId]);
@@ -456,22 +505,62 @@ function writeEntry(
     orNull(input.url),
     orNull(input.notes),
     input.favorite ? 1 : 0,
+    orNull(input.kept_at ?? ''),
   ];
   if (id != null) {
     db.executeSync(
       `UPDATE entries SET kind = ?, type = ?, fields = ?, field_text = ?, folder_id = ?, title = ?, username = ?, password = ?,
-       url = ?, notes = ?, favorite = ?, updated_at = ? WHERE id = ?`,
+       url = ?, notes = ?, favorite = ?, kept_at = ?, updated_at = ? WHERE id = ?`,
       [...common, now, id],
     );
     return id;
   }
   const res = db.executeSync(
     `INSERT INTO entries (kind, type, fields, field_text, folder_id, title, username, password, url, notes, favorite,
-       created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       kept_at, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [...common, now, now],
   );
   return Number(res.insertId);
+}
+
+export function listNominees(db: DB, entryId: number): Nominee[] {
+  return rows<{ name: string; relation: string | null; share: string | null }>(
+    db,
+    'SELECT name, relation, share FROM nominees WHERE entry_id = ? ORDER BY position',
+    [entryId],
+  ).map(n => ({ name: n.name, relation: n.relation ?? '', share: n.share ?? '' }));
+}
+
+const cleanNominee = (n: Nominee): Nominee => ({
+  name: n.name.trim(),
+  relation: n.relation.trim(),
+  share: n.share.trim().replace(/%$/, '').trim(),
+});
+
+/** What's wrong with these nominees, or null. Shares, when every nominee has one, add up to 100. */
+export function nomineesProblem(list: Nominee[]): string | null {
+  const ns = list.map(cleanNominee).filter(n => n.name || n.relation || n.share);
+  if (ns.length > NOMINEES_MAX) {
+    return `At most ${NOMINEES_MAX} nominees.`;
+  }
+  if (ns.some(n => !n.name)) {
+    return 'Give each nominee a name.';
+  }
+  if (ns.some(n => n.share && !/^\d{1,3}(\.\d{1,2})?$/.test(n.share))) {
+    return 'Write each share as a percentage, like 50.';
+  }
+  const shares = ns.map(n => Number(n.share));
+  if (ns.some(n => n.share && Number(n.share) > 100)) {
+    return 'A share can be at most 100%.';
+  }
+  if (ns.length > 0 && ns.every(n => n.share)) {
+    const total = Math.round(shares.reduce((a, b) => a + b, 0) * 100) / 100;
+    if (total !== 100) {
+      return `The shares add up to ${total}%. Make them add up to 100%.`;
+    }
+  }
+  return null;
 }
 
 /** Notes that an entry was opened or copied from, for "Recently used". Not an edit. */
@@ -506,6 +595,7 @@ export function setFavorite(db: DB, id: number, favorite: boolean) {
 }
 
 export function deleteEntry(db: DB, id: number) {
+  db.executeSync('DELETE FROM nominees WHERE entry_id = ?', [id]);
   db.executeSync('DELETE FROM pins WHERE entry_id = ?', [id]);
   db.executeSync('DELETE FROM cards WHERE entry_id = ?', [id]);
   db.executeSync('DELETE FROM entries WHERE id = ?', [id]);

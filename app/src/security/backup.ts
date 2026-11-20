@@ -50,7 +50,17 @@ export type BackupCard = {
 
 export type BackupPin = { id: number; entry_id: number; label: string; value: string; created_at: number; updated_at: number };
 
-export type BackupData = { schema: number; folders: Folder[]; entries: Entry[]; cards?: BackupCard[]; pins?: BackupPin[] };
+/** 1.11.0: an entry's nominees, in order. */
+export type BackupNominee = { entry_id: number; position: number; name: string; relation: string | null; share: string | null };
+
+export type BackupData = {
+  schema: number;
+  folders: Folder[];
+  entries: Entry[];
+  cards?: BackupCard[];
+  pins?: BackupPin[];
+  nominees?: BackupNominee[];
+};
 
 function dataKey(dek: Buffer): Buffer {
   return QuickCrypto.createHmac('sha256', dek).update(Buffer.from('vault-backup-data:v1', 'utf8')).digest() as Buffer;
@@ -70,6 +80,7 @@ export function createBackup(db: DB, dek: Buffer, now = new Date()): { text: str
     entries: rows<Entry>(db, 'SELECT * FROM entries ORDER BY id'),
     cards: rows<BackupCard>(db, 'SELECT * FROM cards ORDER BY id'),
     pins: rows<BackupPin>(db, 'SELECT * FROM pins ORDER BY id'),
+    nominees: rows<BackupNominee>(db, 'SELECT entry_id, position, name, relation, share FROM nominees ORDER BY entry_id, position'),
   };
   const key = dataKey(dek);
   try {
@@ -169,6 +180,7 @@ export async function openBackup(file: BackupFile, secret: string): Promise<Open
 export function restoreInto(db: DB, data: BackupData) {
   db.executeSync('BEGIN');
   try {
+    db.executeSync('DELETE FROM nominees');
     db.executeSync('DELETE FROM pins');
     db.executeSync('DELETE FROM cards');
     db.executeSync('DELETE FROM entries');
@@ -191,13 +203,14 @@ export function restoreInto(db: DB, data: BackupData) {
         e.url ?? null,
         e.notes ?? null,
         e.favorite ? 1 : 0,
+        e.kept_at ?? null,
         e.created_at,
         e.updated_at,
       ];
       db.executeSync(
         `INSERT INTO entries (id, kind, type, fields, field_text, folder_id, title, username, password, url, notes,
-           favorite, created_at, updated_at)
-         VALUES (?, ?, coalesce(?, 'other'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+           favorite, kept_at, created_at, updated_at)
+         VALUES (?, ?, coalesce(?, 'other'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         params,
       );
     }
@@ -221,6 +234,15 @@ export function restoreInto(db: DB, data: BackupData) {
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [c.id, c.entry_id, c.kind, c.number, c.expiry, c.name, c.pin, c.bank ?? null, c.created_at, c.updated_at],
       );
+    }
+    for (const n of data.nominees ?? []) {
+      db.executeSync('INSERT INTO nominees (entry_id, position, name, relation, share) VALUES (?, ?, ?, ?, ?)', [
+        n.entry_id,
+        n.position,
+        n.name,
+        n.relation ?? null,
+        n.share ?? null,
+      ]);
     }
     db.executeSync('COMMIT');
   } catch (e) {

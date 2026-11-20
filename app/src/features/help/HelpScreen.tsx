@@ -50,6 +50,17 @@ export const HELP: Section[] = [
     ],
   },
   {
+    title: 'Family Kit',
+    points: [
+      'The Family tab lists 13 things your family would need if something happened to you: your will, IDs, bank accounts, cards, investments, insurance, EPF and pension, property, vehicles, loans, phone and email, people to call, and your wishes.',
+      'Tap an item and Add to record it. It turns Done when Anchor holds something for it; mark items that don’t apply as Not needed.',
+      'Record what exists and the numbers that prove it (policy number, UAN, account number), never amounts. With the number, the bank or insurer can find it and send a fresh copy.',
+      'On each entry, note where the paper original is kept (“Blue file, bedroom cupboard”) and who the nominees are. Nominees collect the money; the heirs under your will own it, so keep the two in line.',
+      'A will, a property or an insurance policy needs no password: its details are enough to save it.',
+      'This is not legal advice: succession depends on personal law and state rules. Ask a lawyer about your will.',
+    ],
+  },
+  {
     title: 'Copying a password',
     points: [
       'Tap Copy next to an entry, switch to the other app and paste.',

@@ -19,7 +19,11 @@ import {
   type CardKind,
 } from '../../cards';
 import {
+  NOMINEES_MAX,
   PIN_LABELS,
+  listNominees,
+  nomineesProblem,
+  type Nominee,
   PIN_MIN,
   cleanPin,
   isValidPin,
@@ -103,6 +107,11 @@ export function EntryForm({
   const [url, setUrl] = useState(existing?.url ?? '');
   const [notes, setNotes] = useState(existing?.notes ?? '');
   const [favorite, setFav] = useState(!!existing?.favorite);
+  // Family Kit (1.11.0): where the paper original is, and who the nominees are.
+  const [keptAt, setKeptAt] = useState(existing?.kept_at ?? '');
+  const [nominees, setNominees] = useState<Nominee[]>(() => (existing ? listNominees(db, existing.id) : []));
+  // Kit types (a will, a property) don't usually have a login; it's there on request.
+  const [loginAsked, setLoginAsked] = useState(false);
   const [showPw, setShowPw] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -122,7 +131,14 @@ export function EntryForm({
   const pinsOk = usedPins.every(p => pinProblem(p) == null);
   const fieldsOk = fieldsProblem(fields) == null;
   const hasSecret = password.length > 0 || usedPins.length > 0 || (showCards && cards.length > 0);
-  const canSave = title.trim().length > 0 && hasSecret && cardsOk && pinsOk && fieldsOk;
+  const usedNominees = nominees.filter(n => n.name.trim() || n.relation.trim() || n.share.trim());
+  const nomineesOk = nomineesProblem(usedNominees) == null;
+  const hasDetails =
+    fields.some(f => f.name.trim() && f.value.trim()) || !!notes.trim() || !!keptAt.trim() || usedNominees.length > 0;
+  const canSave = title.trim().length > 0 && (hasSecret || hasDetails) && cardsOk && pinsOk && fieldsOk && nomineesOk;
+  const showLogin = info.login || loginAsked || !!(existing?.username || existing?.password || existing?.url);
+  const showNominees = info.nominees || usedNominees.length > 0;
+  const showKeptAt = !info.login || info.nominees || !!existing?.kept_at;
   const strength = estimateStrength(password);
   const currentTab: FormTab = tab === 'cards' && !showCards ? 'login' : tab;
 
@@ -142,6 +158,8 @@ export function EntryForm({
           url,
           notes,
           favorite,
+          kept_at: keptAt,
+          nominees: usedNominees,
         },
         existing?.id,
       );
@@ -153,7 +171,7 @@ export function EntryForm({
 
   const what = info.key === 'other' ? 'entry' : info.label.toLowerCase();
   const tabs: { key: FormTab; label: string }[] = [
-    { key: 'login', label: password ? 'Login ✓' : 'Login' },
+    { key: 'login', label: info.login ? (password ? 'Login ✓' : 'Login') : 'Details' },
     { key: 'pins', label: usedPins.length ? `PINs · ${usedPins.length}` : 'PINs' },
     ...(showCards ? [{ key: 'cards' as const, label: cards.length ? `Cards · ${cards.length}` : 'Cards' }] : []),
   ];
@@ -199,7 +217,14 @@ export function EntryForm({
             ))}
           </View>
 
-          {currentTab === 'login' && (
+          {currentTab === 'login' && !showLogin && (
+            <>
+              <FieldsEditor fields={fields} onChange={setFields} />
+              <Button title="+ Add a login (username, password)" variant="ghost" small onPress={() => setLoginAsked(true)} />
+            </>
+          )}
+
+          {currentTab === 'login' && showLogin && (
             <>
               <Field label="Username" value={username} onChangeText={setUsername} autoCapitalize="none" importantForAutofill="no" />
               <View style={{ gap: 8 }}>
@@ -227,8 +252,20 @@ export function EntryForm({
 
           {currentTab === 'cards' && <CardsEditor cards={cards} onChange={setCards} onBank={bankFromScan} />}
 
-          {!hasSecret && title.trim().length > 0 && (
-            <Text style={s.hint}>Add a password, a PIN{showCards ? ' or a card' : ''} to save this entry.</Text>
+          {showKeptAt && (
+            <Field
+              label="Where the original is kept"
+              value={keptAt}
+              onChangeText={setKeptAt}
+              placeholder="e.g. Blue file, bedroom cupboard"
+              maxLength={120}
+            />
+          )}
+
+          {showNominees && <NomineesEditor nominees={nominees} onChange={setNominees} />}
+
+          {!hasSecret && !hasDetails && title.trim().length > 0 && (
+            <Text style={s.hint}>Add a password, a PIN{showCards ? ', a card' : ''} or some details to save this entry.</Text>
           )}
 
           <Pressable
@@ -251,16 +288,57 @@ export function EntryForm({
   );
 }
 
-const placeholderFor = (t: EntryType) =>
-  t === 'banking'
-    ? 'e.g. HDFC Bank'
-    : t === 'investments'
-      ? 'e.g. Zerodha, Groww'
-      : t === 'social'
-        ? 'e.g. Instagram'
-        : t === 'email'
-          ? 'e.g. Gmail'
-          : 'e.g. Wi-Fi, Netflix';
+const PLACEHOLDERS: Record<EntryType, string> = {
+  banking: 'e.g. HDFC Bank',
+  investments: 'e.g. Zerodha, Groww',
+  insurance: 'e.g. LIC term plan',
+  retirement: 'e.g. EPF, NPS',
+  identity: 'e.g. My IDs',
+  property: 'e.g. Flat, Whitefield',
+  vehicle: 'e.g. Swift KA 01 AB 1234',
+  loans: 'e.g. Home loan, SBI',
+  will: 'e.g. Will (2025)',
+  people: 'e.g. Ramesh, CA',
+  wishes: 'e.g. My wishes',
+  social: 'e.g. Instagram',
+  email: 'e.g. Gmail',
+  other: 'e.g. Wi-Fi, Netflix',
+};
+const placeholderFor = (t: EntryType) => PLACEHOLDERS[t];
+
+/**
+ * Nominees (1.11.0): who collects the money or property. Nominees collect; heirs under the will
+ * own it, so the two should match.
+ */
+function NomineesEditor({ nominees, onChange }: { nominees: Nominee[]; onChange: React.Dispatch<React.SetStateAction<Nominee[]>> }) {
+  const update = (i: number, patch: Partial<Nominee>) => onChange(prev => prev.map((n, j) => (j === i ? { ...n, ...patch } : n)));
+  const used = nominees.filter(n => n.name.trim() || n.relation.trim() || n.share.trim());
+  const problem = nomineesProblem(used);
+  return (
+    <View style={{ gap: 10 }}>
+      <Text style={s.label}>Nominees</Text>
+      {nominees.map((n, i) => (
+        <View key={i} style={s.cardBox}>
+          <Field label="Nominee's name" value={n.name} onChangeText={t => update(i, { name: t })} maxLength={60} />
+          <View style={s.pwTools}>
+            <View style={{ flex: 2 }}>
+              <Field label="Relationship" value={n.relation} onChangeText={t => update(i, { relation: t })} placeholder="e.g. Wife" maxLength={30} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Field label="Share %" value={n.share} onChangeText={t => update(i, { share: t })} keyboardType="decimal-pad" maxLength={6} />
+            </View>
+          </View>
+          <Button title="Remove nominee" small variant="ghost" onPress={() => onChange(prev => prev.filter((_, j) => j !== i))} />
+        </View>
+      ))}
+      {problem && <Text style={[s.hint, s.hintBad]}>{problem}</Text>}
+      {nominees.length < NOMINEES_MAX && (
+        <Button title="+ Add nominee" variant="soft" small onPress={() => onChange(prev => [...prev, { name: '', relation: '', share: '' }])} />
+      )}
+      <Text style={s.hint}>Nominees collect the money; the heirs under your will own it. Keep the two in line.</Text>
+    </View>
+  );
+}
 
 function FieldsEditor({
   fields,

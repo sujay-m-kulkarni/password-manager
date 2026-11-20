@@ -557,3 +557,67 @@ test('1.9.0: after unlocking, Vault opens only once a daily backup is set up', a
     delete NativeModules.VaultFiles;
   }
 });
+
+test('1.11.0: the Family tab: add a will from the checklist and it counts as done', async () => {
+  let r!: ReactTestRenderer.ReactTestRenderer;
+  await act(async () => {
+    r = ReactTestRenderer.create(<App />);
+  });
+  await act(async () => {
+    await wait(50);
+  });
+  if (textOf(r).includes('Create your master password')) {
+    // Run on its own: make a vault first.
+    const inputs = r.root.findAllByType(TextInput);
+    await act(async () => {
+      inputs[0].props.onChangeText('seven quiet blue lanterns');
+      inputs[1].props.onChangeText('seven quiet blue lanterns');
+    });
+    await pressButton(r, 'Create vault');
+    await seen(r, 'Your recovery key');
+    await act(async () => {
+      r.root.findAll(n => n.props.accessibilityRole === 'checkbox')[0].props.onPress();
+    });
+    await pressButton(r, 'Continue');
+    await seen(r, 'Unlock with your fingerprint');
+    await pressButton(r, 'Continue');
+  } else if (!atHome(r)) {
+    await act(async () => {
+      r.root.findAllByType(TextInput)[0].props.onChangeText('seven quiet blue lanterns');
+    });
+    await pressButton(r, 'Unlock');
+  }
+  await home(r);
+  // Bottom bar: React Navigation labels its buttons "Family, tab, 2 of 3".
+  const familyTab = r.root.findAll(
+    n => typeof n.props.onPress === 'function' && String(n.props.accessibilityLabel ?? '').startsWith('Family, tab'),
+  )[0];
+  await act(async () => {
+    familyTab.props.onPress();
+    await wait(50);
+  });
+  await seen(r, 'Family Kit');
+  await seen(r, 'Will & documents');
+
+  const item = (label: string) =>
+    r.root.findAll(n => typeof n.props.accessibilityLabel === 'string' && n.props.accessibilityLabel.startsWith(label) && typeof n.props.onPress === 'function')[0];
+  expect(item('Will & documents').props.accessibilityLabel).toBe('Will & documents: To do');
+  await act(async () => {
+    item('Will & documents').props.onPress();
+  });
+  await pressButton(r, 'Add');
+  await seen(r, 'Where the original is kept');
+
+  const input = (label: string) => r.root.findAllByType(TextInput).find(i => i.props.accessibilityLabel === label)!;
+  expect(input('Password')).toBeUndefined(); // no login on a will unless asked for
+  await act(async () => {
+    input('Title').props.onChangeText('Will (2025)');
+    input('Where the original is kept').props.onChangeText('Blue file, bedroom cupboard');
+  });
+  await pressButton(r, 'Save');
+  await seen(r, 'Family Kit');
+  expect(item('Will & documents').props.accessibilityLabel).toBe('Will & documents: Done');
+  await act(async () => {
+    r.unmount();
+  });
+});

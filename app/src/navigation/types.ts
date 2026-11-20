@@ -3,6 +3,7 @@ import type { EntryType } from '../entryTypes';
 
 export type TabParamList = {
   Vault: undefined;
+  Family: undefined;
   Settings: undefined;
 };
 
