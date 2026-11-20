@@ -46,6 +46,7 @@ export const DEFAULT_FIELDS: Record<EntryType, FieldSpec[]> = {
     { name: 'Sum assured', kind: 'text' },
     { name: 'Agent', kind: 'text' },
     { name: 'Agent phone', kind: 'number' },
+    { name: 'Group policy via employer', kind: 'text' },
   ],
   retirement: [
     { name: 'UAN', kind: 'number' },

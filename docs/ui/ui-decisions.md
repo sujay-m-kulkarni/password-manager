@@ -72,3 +72,14 @@ Settings (Daily backup card with both places, time and Back up now). The entry p
 the design's tabs: read-only details are quicker to scan without switching tabs. "Recently used" = entries opened or copied from,
 stored as `entries.used_at` (migration v6), which never changes `updated_at`.
 
+## Family Kit, part 1 (1.11.0)
+
+A third bottom tab, **Family** (people icon), between Anchor and Settings. It shows "Family Kit", a one-paragraph lead, a
+progress card ("9 of 13 done", bar, % in the accent; Not needed items are left out of the count) and the 13 checklist items as
+one grouped list: icon (a green tick when Done), title, one line (the entries' titles when Done, else why it matters) and a
+status pill (Done green, To do amber, Not needed grey). Tapping expands it: why, its entries (tap to open), Add / Add another
+(opens a new entry of the right type; Cards opens Banking on its Cards tab) and Not needed / Needed after all. A dark note at the
+end says family access comes next. In the entry form, types without a login (all Family Kit types) call the first tab **Details**
+and show "+ Add a login" instead of username/password; "Where the original is kept" sits under the tabs, then **Nominees**
+(name, relationship, share %) for types where money or property passes on. The entry page shows both under **For your family**.
+Scanned copies are shelved (decided 20 Nov 2026): numbers trace most records, and "Where the original is kept" covers papers.

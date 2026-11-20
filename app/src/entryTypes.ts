@@ -32,7 +32,8 @@ export type TypeIcon =
   | 'receipt'
   | 'doc'
   | 'phone'
-  | 'heart';
+  | 'heart'
+  | 'pin';
 
 export type TypeInfo = {
   key: EntryType;

@@ -4,6 +4,15 @@ What's new in each release, newest first. The GitHub release notes are made from
 merged pull request (`app/scripts/release-notes.mjs`); this file keeps the whole history in one place and is updated
 in every PR.
 
+## 1.11.0
+
+- New **Family** tab: the Family Kit checklist. Thirteen things your family would need if something happened to you (will, IDs, bank accounts, cards, investments, insurance, EPF and pension, property, vehicles, loans, phone and email, people to call, wishes), each Done, Not needed or To do, with "9 of 13 done" progress. Tap one to see its entries or add one.
+- New entry types with their own starting fields: Insurance, Retirement (EPF, NPS, pension), Identity, Property, Vehicle, Loans & dues, Will & documents, People and Wishes. Fields can be changed per type in Settings › Entry types.
+- Nominees on Banking, Investments, Insurance, Retirement, Property and Vehicle entries: name, relationship and share (shares must add up to 100%).
+- "Where the original is kept" on Family Kit entries, shown on the entry page under For your family.
+- Family Kit records need no password: details, notes, where the original is or a nominee are enough to save one. Their first tab is Details; a login can still be added.
+- Help has a new Family Kit section.
+
 ## 1.10.0
 
 - Vault is now **Anchor**, with a new brass-anchor icon: "what keeps a family steady". Same app and same vault; it installs over the old one as usual.
