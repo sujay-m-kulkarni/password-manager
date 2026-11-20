@@ -2,28 +2,66 @@
  * Entry types (they replace folders from 1.5.0). A type decides an entry's colour, its filter chip
  * and its starting fields (customFields.ts). Banking entries can also hold debit and credit cards.
  */
-export type EntryType = 'banking' | 'investments' | 'social' | 'email' | 'other';
+export type EntryType =
+  | 'banking'
+  | 'investments'
+  | 'insurance'
+  | 'retirement'
+  | 'identity'
+  | 'property'
+  | 'vehicle'
+  | 'loans'
+  | 'will'
+  | 'people'
+  | 'wishes'
+  | 'social'
+  | 'email'
+  | 'other';
 
-export type TypeInfo = { key: EntryType; label: string; color: string; cards: boolean; icon: 'bank' | 'chart' | 'people' | 'mail' | 'grid' };
+export type TypeIcon =
+  | 'bank'
+  | 'chart'
+  | 'people'
+  | 'mail'
+  | 'grid'
+  | 'umbrella'
+  | 'sunset'
+  | 'id'
+  | 'home'
+  | 'car'
+  | 'receipt'
+  | 'doc'
+  | 'phone'
+  | 'heart';
 
+export type TypeInfo = {
+  key: EntryType;
+  label: string;
+  color: string;
+  cards: boolean;
+  icon: TypeIcon;
+  /** Records a login (username, password, website) by default. Others show it only on request (1.11.0). */
+  login: boolean;
+  /** Nominees make sense here: money or property that passes to someone (1.11.0). */
+  nominees: boolean;
+};
+
+/** In the order they're offered. The Family Kit types (1.11.0) record what exists and how to find it. */
 export const ENTRY_TYPES: TypeInfo[] = [
-  {
-    key: 'banking',
-    label: 'Banking',
-    color: 'blue',
-    cards: true,
-    icon: 'bank',
-  },
-  {
-    key: 'investments',
-    label: 'Investments',
-    color: 'green',
-    cards: false,
-    icon: 'chart',
-  },
-  { key: 'social', label: 'Social media', color: 'pink', cards: false, icon: 'people' },
-  { key: 'email', label: 'Email', color: 'orange', cards: false, icon: 'mail' },
-  { key: 'other', label: 'Other', color: 'violet', cards: false, icon: 'grid' },
+  { key: 'banking', label: 'Banking', color: 'blue', cards: true, icon: 'bank', login: true, nominees: true },
+  { key: 'investments', label: 'Investments', color: 'green', cards: false, icon: 'chart', login: true, nominees: true },
+  { key: 'insurance', label: 'Insurance', color: 'sky', cards: false, icon: 'umbrella', login: false, nominees: true },
+  { key: 'retirement', label: 'Retirement', color: 'amber', cards: false, icon: 'sunset', login: false, nominees: true },
+  { key: 'identity', label: 'Identity', color: 'violet', cards: false, icon: 'id', login: false, nominees: false },
+  { key: 'property', label: 'Property', color: 'orange', cards: false, icon: 'home', login: false, nominees: true },
+  { key: 'vehicle', label: 'Vehicle', color: 'sky', cards: false, icon: 'car', login: false, nominees: true },
+  { key: 'loans', label: 'Loans & dues', color: 'pink', cards: false, icon: 'receipt', login: false, nominees: false },
+  { key: 'will', label: 'Will & documents', color: 'amber', cards: false, icon: 'doc', login: false, nominees: false },
+  { key: 'people', label: 'People', color: 'green', cards: false, icon: 'phone', login: false, nominees: false },
+  { key: 'wishes', label: 'Wishes', color: 'pink', cards: false, icon: 'heart', login: false, nominees: false },
+  { key: 'social', label: 'Social media', color: 'pink', cards: false, icon: 'people', login: true, nominees: false },
+  { key: 'email', label: 'Email', color: 'orange', cards: false, icon: 'mail', login: true, nominees: false },
+  { key: 'other', label: 'Other', color: 'violet', cards: false, icon: 'grid', login: true, nominees: false },
 ];
 
 export const typeInfo = (t: string | null | undefined): TypeInfo =>

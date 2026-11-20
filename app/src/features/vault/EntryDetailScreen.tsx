@@ -10,7 +10,7 @@ import { ClipboardToast } from '../../components/ClipboardToast';
 import { Icon, type IconName } from '../../components/Icon';
 import { Button, StrengthBar } from '../../components/ui';
 import { cardNetwork, groupCardNumber, maskCardNumber, type Card } from '../../cards';
-import { deleteEntry, getEntry, groupPin, listCards, listPins, markUsed, setFavorite, type EntryPin } from '../../db/database';
+import { deleteEntry, getEntry, groupPin, listCards, listNominees, listPins, markUsed, setFavorite, type EntryPin } from '../../db/database';
 import { parseCustomFields, type CustomField } from '../../customFields';
 import { typeInfo } from '../../entryTypes';
 import type { RootStackParamList } from '../../navigation/types';
@@ -34,6 +34,7 @@ export function EntryDetailScreen({ navigation, route }: Props) {
   const entry = useMemo(() => getEntry(db, route.params.id), [db, route.params.id, dataVersion]); // eslint-disable-line react-hooks/exhaustive-deps
   const cards = useMemo(() => listCards(db, route.params.id), [db, route.params.id, dataVersion]); // eslint-disable-line react-hooks/exhaustive-deps
   const pins = useMemo(() => listPins(db, route.params.id), [db, route.params.id, dataVersion]); // eslint-disable-line react-hooks/exhaustive-deps
+  const nominees = useMemo(() => listNominees(db, route.params.id), [db, route.params.id, dataVersion]); // eslint-disable-line react-hooks/exhaustive-deps
   // For "Recently used" on the list. Not an edit: the entry's edit time stays.
   useEffect(() => {
     try {
@@ -130,7 +131,9 @@ export function EntryDetailScreen({ navigation, route }: Props) {
         </SafeAreaView>
 
         <View style={s.body}>
-          {(!!entry.username || hasPassword || !!entry.url || fields.length > 0) && <Text style={s.section}>LOGIN</Text>}
+          {(!!entry.username || hasPassword || !!entry.url || fields.length > 0) && (
+            <Text style={s.section}>{t.login || hasPassword ? 'LOGIN' : 'DETAILS'}</Text>
+          )}
           <View style={s.group}>
           {!!entry.username && (
             <Row label="Username" value={entry.username}>
@@ -179,6 +182,21 @@ export function EntryDetailScreen({ navigation, route }: Props) {
             </>
           )}
 
+          {(!!entry.kept_at || nominees.length > 0) && (
+            <>
+              <Text style={s.section}>FOR YOUR FAMILY</Text>
+              <View style={s.group}>
+                {!!entry.kept_at && <Row label="Original kept at" value={entry.kept_at} />}
+                {nominees.map((n, i) => (
+                  <Row
+                    key={i}
+                    label={nominees.length > 1 ? `Nominee ${i + 1}` : 'Nominee'}
+                    value={[n.name, n.relation, n.share ? `${n.share}%` : ''].filter(Boolean).join(' · ')}
+                  />
+                ))}
+              </View>
+            </>
+          )}
           {!!entry.notes && (
             <View style={[s.group, { marginTop: 8 }]}>
               <Row label="Notes" value={entry.notes} />

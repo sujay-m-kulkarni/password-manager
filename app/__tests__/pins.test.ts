@@ -108,9 +108,9 @@ describe('saveEntry with PINs', () => {
     expect(calls).toHaveLength(0);
   });
 
-  it('needs a password, a PIN or a card', () => {
+  it('needs a password, a PIN, a card or some details', () => {
     const { db, calls } = fakeDb();
-    expect(() => saveEntry(db, { ...base, pins: [] })).toThrow('Add a password, a PIN or a card.');
+    expect(() => saveEntry(db, { ...base, pins: [] })).toThrow('Add a password, a PIN, a card or some details.');
     expect(calls).toHaveLength(0);
   });
 
